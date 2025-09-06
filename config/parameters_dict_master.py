@@ -839,7 +839,7 @@ def update_parameters_dict(par_dict_path, ran_seed):
             parameters_dict.music_dict['Initial_time_tau_0'] = (
                 kompost_dict['KoMPoSTInputs']['tOut'])
 ###########################################################################################
-    elif initial_condition_type == "trento":
+    elif initial_condition_type == "TRENTo":
         isobars_conf_dict_target.update(parameters_dict.isobars_conf_dict_target)
         isobars_conf_dict_projectile.update(parameters_dict.isobars_conf_dict_projectile)
         trento_dict.update(parameters_dict.trento_dict)
