@@ -7,12 +7,13 @@ from os import path, makedirs
 import sys
 import shutil
 import argparse
+import yaml
 
 # control parameters
 control_dict = {
     'walltime': "10:00:00",  # walltime to run
     'initial_state_type':
-        "3DMCGlauber_dynamical",  # options: IPGlasma, IPGlasma+KoMPoST,
+        "TRENTo",  # options: TRENTo, IPGlasma, IPGlasma+KoMPoST,
     #          3DMCGlauber_dynamical, 3DMCGlauber_consttau
     'afterburner_type': "UrQMD",  # options: UrQMD, decay
     'save_ipglasma_results': False,  # flag to save IPGlasma results
@@ -31,6 +32,118 @@ control_dict = {
     'PosteriorParamSet': 0,         # -1: choose randoomly
     'PosteriorParamSetFlag': 0,     # 0: choose from sorted chain
                                     # 1: choose from parameter clusters
+}
+
+# isobar-sample
+isobars_conf_dict_target = {
+    "isobar_samples": {
+        "description": "Options for the isobar nucleon‑position samples",
+        "number_configs": {
+            "description": "Number of configurations to be sampled.",
+            "value": 5000,
+        },
+        "number_nucleons": {
+            "description": "Mass number A of the nuclei.",
+            "value": 197,
+        },
+        "seeds_file": {
+            "description": "Input file with list of seeds for nucleon positions.",
+            "filename": "nucleon-seeds_AuAu.hdf",
+        },
+        "output_path": {
+            "description": "Output directory where to save",
+            "dirname": "nuclei",
+        },
+        "number_of_parallel_processes": {
+            "description": (
+                "Number of processes to compute in parallel. A value of -1 "
+                "automatically selects the number of CPUs present."
+            ),
+            "value": -1,
+        },
+    },
+    "isobar_properties": {
+        "description": (
+            "Nuclear properties of isobars to be sampled. "
+            "Entries = isobar1, isobar2, ... Results are saved to isobar_name.hdf"
+        ),
+        "isobar1": {
+            "isobar_name": "Au",
+            "WS_radius": {"description": "Woods‑Saxon radius parameter R", "value": 6.38},
+            "WS_diffusiveness": {"description": "Woods‑Saxon diffusiveness parameter a", "value": 0.535},
+            "beta_2": {"description": "Quadrupolar deformation β₂", "value": 0},
+            "gamma": {"description": "Quadrupolar deformation angle (rad)", "value": 0},
+            "beta_3": {"description": "Octupolar deformation β₃", "value": 0},
+            "correlation_length": {"description": "Radius of step‑function correlation C(r) (fm)", "value": 0},
+            "correlation_strength": {"description": "Depth of correlation (≥ −1)", "value": -1},
+        },
+    },
+}
+
+
+isobars_conf_dict_projectile = {
+    "isobar_samples": {
+        "description": "Options for the isobar nucleon‑position samples",
+        "number_configs": {
+            "description": "Number of configurations to be sampled.",
+            "value": 5000,
+        },
+        "number_nucleons": {
+            "description": "Mass number A of the nuclei.",
+            "value": 197,
+        },
+        "seeds_file": {
+            "description": "Input file with list of seeds for nucleon positions.",
+            "filename": "nucleon-seeds_AuAu.hdf",
+        },
+        "output_path": {
+            "description": "Output directory where to save",
+            "dirname": "nuclei",
+        },
+        "number_of_parallel_processes": {
+            "description": (
+                "Number of processes to compute in parallel. A value of -1 "
+                "automatically selects the number of CPUs present."
+            ),
+            "value": -1,
+        },
+    },
+    "isobar_properties": {
+        "description": (
+            "Nuclear properties of isobars to be sampled. "
+            "Entries = isobar1, isobar2, ... Results are saved to isobar_name.hdf"
+        ),
+        "isobar1": {
+            "isobar_name": "Au",
+            "WS_radius": {"description": "Woods‑Saxon radius parameter R", "value": 6.38},
+            "WS_diffusiveness": {"description": "Woods‑Saxon diffusiveness parameter a", "value": 0.535},
+            "beta_2": {"description": "Quadrupolar deformation β₂", "value": 0},
+            "gamma": {"description": "Quadrupolar deformation angle (rad)", "value": 0},
+            "beta_3": {"description": "Octupolar deformation β₃", "value": 0},
+            "correlation_length": {"description": "Radius of step‑function correlation C(r) (fm)", "value": 0},
+            "correlation_strength": {"description": "Depth of correlation (≥ −1)", "value": -1},
+        },
+    },
+}
+
+
+# TRENTo 
+trento_dict = {
+    'type': "self", # self: generate initial condition on the fly #'database_name?'
+    'projectile': ['nuclei.hdf/WS1.hdf', 'nuclei.hdf/WS2.hdf'], # projectile nucleus name
+    #'projectile': "Pb", # projectile/target nucleus name
+    'number-events': 1, # number of events
+    'quiet': True, ###
+    'output': 'test_path.dat',
+    'reduced-thickness': 0, ###
+    'fluctuation': 1 ,      # gamma fluctuations
+    'nucleon-width': 0.5,    # nucleon width
+    'cross-section': 6.4,   # inelastic nucleon-nucleon cross-section
+    'normalization': 1,      # normalization
+    'b-min': 0,              # minimum b
+    'b-max': 14,             # maximum b
+    'grid-max': 10,          #####
+    'grid-step': 0.2,        #####
 }
 
 # IPGlasma
@@ -669,18 +782,23 @@ hadronic_afterburner_toolkit_dict = {
     'BpT_max': 3.0,  # the maximum pT cut for particles used in balance function
 }
 
+# Add Isobar and TRENTo option
+
 Parameters_list = [(ipglasma_dict, "input", 3), (kompost_dict, "setup.ini", 4),
                    (mcglauber_dict, "input", 0),
                    (music_dict, "music_input_mode_2", 2),
                    (photon_dict, "parameters.dat", 1),
                    (iss_dict, "iSS_parameters.dat", 1),
-                   (hadronic_afterburner_toolkit_dict, "parameters.dat", 1)]
+                   (hadronic_afterburner_toolkit_dict, "parameters.dat", 1), (trento_dict, "input", 5),
+                   (isobars_conf_dict_target, "isobars-conf_target.yaml", 6),
+                   (isobars_conf_dict_projectile, "isobars-conf_projectile.yaml", 6)]
 
 path_list = [
     'model_parameters/IPGlasma/', 'model_parameters/KoMPoST/',
     'model_parameters/3dMCGlauber/', 'model_parameters/MUSIC/',
     'model_parameters/photonEmission_hydroInterface/', 'model_parameters/iSS/',
-    'model_parameters/hadronic_afterburner_toolkit/'
+    'model_parameters/hadronic_afterburner_toolkit/', 'model_parameters/TRENTo', 'model_parameters/Isobar-Sampler_target',
+    'model_parameters/Isobar-Sampler_projectile'
 ]
 
 
@@ -720,6 +838,19 @@ def update_parameters_dict(par_dict_path, ran_seed):
             parameters_dict.music_dict['s_factor'] = 1.0
             parameters_dict.music_dict['Initial_time_tau_0'] = (
                 kompost_dict['KoMPoSTInputs']['tOut'])
+###########################################################################################
+    elif initial_condition_type == "trento":
+        isobars_conf_dict_target.update(parameters_dict.isobars_conf_dict_target)
+        isobars_conf_dict_projectile.update(parameters_dict.isobars_conf_dict_projectile)
+        trento_dict.update(parameters_dict.trento_dict)
+        if 'Initial_Distribution_input_filename' not in parameters_dict.music_dict:
+            parameters_dict.music_dict[
+                'Initial_Distribution_input_filename'] = (
+                    'initial/e.dat')
+        if 'boost_invariant' not in parameters_dict.music_dict:
+            parameters_dict.music_dict['boost_invariant'] = 1
+###########################################################################################
+            
     else:
         mcglauber_dict.update(parameters_dict.mcglauber_dict)
 
@@ -830,6 +961,19 @@ def output_parameters_to_files(workfolder="."):
                     f.write("{parameter_name} = {parameter_value}\n".format(
                         parameter_name=subkey_name,
                         parameter_value=parameters_dict[key_name][subkey_name]))
+            elif itype == 5:
+                if key_name == "type":
+                    continue
+                value = parameters_dict[key_name]
+
+                if isinstance(value, list):
+                    for v in value:
+                        f.write(f"{key_name} = {v}\n")
+                else:
+                    f.write(f"{key_name} = {value}\n")
+            elif itype == 6:
+                yaml.safe_dump(parameters_dict, f, sort_keys=False)
+                
         if itype == 2:
             f.write("EndOfData")
         elif itype == 3:
