@@ -25,6 +25,25 @@ case "${machine}" in
 esac
 number_of_cores_to_compile=$(( ${number_of_cores} > 10 ? 10 : ${number_of_cores} ))
 
+
+# compile TRENTo
+echo -e "${Green}compile TRENTo ... ${NC}"
+(
+    cd trento_code
+    rm -fr build
+    mkdir -p build
+    cd build
+    cmake ..
+    make -j${number_of_cores_to_compile}
+    make install
+)
+status=$?
+if [ $status -ne 0 ]; then
+    exit $status
+fi
+
+
+
 # compile 3dMCGlauber
 echo -e "${Green}compile 3dMCGlauber ... ${NC}"
 (

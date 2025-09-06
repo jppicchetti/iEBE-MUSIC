@@ -2,6 +2,18 @@
 
 # download the code package
 
+#download Isobar-Sampler
+rm -fr isobar_sampler_code
+git clone https://github.com/mluzum/Isobar-Sampler.git isobar_sampler_code
+#(cd isobar_sampler_code; git checkout ...)
+#rm -fr isobar_sampler_code/.git
+
+# download TRENTo
+rm -fr trento_code
+git clone https://github.com/jppicchetti/trento_sync.git trento_code
+#(cd trento_code; git checkout ...)
+#rm -fr trento_code/.gits
+
 # download 3DMCGlauber
 rm -fr 3dMCGlauber_code
 git clone --depth=5 https://github.com/chunshen1987/3dMCGlauber 3dMCGlauber_code
