@@ -24,7 +24,7 @@ centrality_list = [(0.00, 0.15, '0-5', 0.05), (0.15, 0.30, '5-10', 0.05),
 
 known_initial_types = [
     "IPGlasma", "IPGlasma+KoMPoST", "3DMCGlauber_dynamical",
-    "3DMCGlauber_participants", "3DMCGlauber_consttau"
+    "3DMCGlauber_participants", "3DMCGlauber_consttau", "TRENTo"
 ]
 
 known_afterburner_types = [
@@ -269,7 +269,54 @@ if [ $status -ne 0 ]; then
     exit $status
 fi""")
     script.close()
+    
+############## GENERATES SCRIPTS FOR TRENTo #######################
+def generate_script_trento(folder_name, nthreads, event_id):
+    """This function generates scripts for TRENTo simulation with Isobar-Sampler"""
+    
+    working_folder = folder_name
+    
+    script = open(path.join(working_folder, "run_trento.sh"), "w")
+    
+    results_folder = 'trento_results'
+    script.write("""#!/bin/bash
 
+results_folder={0:s}
+evid=$1
+
+ (
+cd TRENTo
+
+mkdir -p $results_folder
+rm -fr $results_folder/*
+""".format(results_folder))
+    
+    
+    if nthreads > 0:
+        script.write("""
+export OMP_NUM_THREADS={0:d}
+""".format(nthreads))
+    
+    script.write("""
+    # Run Isobar-Sampler ...
+
+(
+cd Isobar-Sampler_target
+./build_isobars.py isobars-conf_target.yaml > run.log
+mv nuclei_target ..
+)
+(
+cd Isobar-Sampler_projectile
+./build_isobars.py isobars-conf_projectile.yaml  > run.log
+mv nuclei_projectile ..
+)
+# Run TRENTo...
+./trento -c input > run.log
+mv test_path.dat $results_folder/
+ )
+""")
+    script.close()
+###################################################################
 
 def generate_script_ipglasma(folder_name, nthreads, event_id, logfile):
     """This function generates script for IPGlasma simulation"""
@@ -595,6 +642,59 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
                                   '3dMCGlauber_code/{}'.format(link_i))),
                     path.join(event_folder, "3dMCGlauber/{}".format(link_i))),
                                 shell=True)
+        ############################## GENERATE FOLDER OF ISOBAR AND TRENTo ##########################        
+        elif "TRENTo" in initial_condition_type:
+              generate_script_trento(event_folder, n_threads, event_id)
+              # Creation of Isobar and TRENTo event folders
+              mkdir(path.join(event_folder, 'TRENTo'))
+              mkdir(path.join(event_folder, 'TRENTo/Isobar-Sampler_target'))
+              mkdir(path.join(event_folder, 'TRENTo/Isobar-Sampler_projectile'))
+              # Copying the input files to the folders created above
+              shutil.copyfile(path.join(param_folder, 'Isobar-Sampler_projectile/isobars-conf_projectile.yaml'),
+                              path.join(event_folder, 'TRENTo/Isobar-Sampler_projectile/isobars-conf_projectile.yaml'))
+              shutil.copyfile(path.join(param_folder, 'Isobar-Sampler_target/isobars-conf_target.yaml'),
+                              path.join(event_folder, 'TRENTo/Isobar-Sampler_target/isobars-conf_target.yaml'))
+              shutil.copyfile(path.join(param_folder, 'TRENTo/input'),
+                              path.join(event_folder, 'TRENTo/input'))
+
+              # Define an absolute path for Isobar to choose the correct seed
+
+              subprocess.call("ln -s {0:s} {1:s}".format(
+                    path.abspath(
+                        path.join(code_path,
+                                  'nucleon-seeds_AuAu.hdf')),
+                    path.join(event_folder, "TRENTo/Isobar-Sampler_projectile/nucleon-seeds_AuAu.hdf")),
+                                shell=True)
+        
+              subprocess.call("ln -s {0:s} {1:s}".format(
+                    path.abspath(
+                        path.join(code_path,
+                                  'nucleon-seeds_AuAu.hdf')),
+                    path.join(event_folder, "TRENTo/Isobar-Sampler_target/nucleon-seeds_AuAu.hdf")),
+                                shell=True)
+             # Sets an absolute path to the Isobar and Trento exec
+              subprocess.call("ln -s {0:s} {1:s}".format(
+                    path.abspath(
+                        path.join(code_path,
+                                  'isobar_sampler_code/exec/build_isobars.py')),
+                    path.join(event_folder, "TRENTo/Isobar-Sampler_projectile/build_isobars.py")),
+                                shell=True)
+        
+              subprocess.call("ln -s {0:s} {1:s}".format(
+                    path.abspath(
+                        path.join(code_path,
+                                  'isobar_sampler_code/exec/build_isobars.py')),
+                    path.join(event_folder, "TRENTo/Isobar-Sampler_target/build_isobars.py")),
+                                shell=True)
+        
+        
+              subprocess.call("ln -s {0:s} {1:s}".format(
+                    path.abspath(
+                        path.join(code_path,
+                                  'trento_code/build/src/trento')),
+                    path.join(event_folder, "TRENTo/trento")),
+                                shell=True)        
+        ##############################################################################################   
         elif initial_condition_type in ("IPGlasma", "IPGlasma+KoMPoST"):
             generate_script_ipglasma(event_folder, n_threads, event_id, logfile)
             mkdir(path.join(event_folder, 'ipglasma'))
@@ -940,6 +1040,11 @@ def main():
         else:
             initial_condition_database = (
                 parameter_dict.ipglasma_dict['database_name_pattern'])
+     ####################################################################TRENTo###############################################
+    elif initial_condition_type == "TRENTo":
+          if parameter_dict.trento_dict['type'] == "self":
+               initial_condition_database = "self"
+    ################################################################################################################################
     elif initial_condition_type == "IPGlasma+KoMPoST":
         if parameter_dict.ipglasma_dict['type'] == "self":
             initial_condition_database = "self"
