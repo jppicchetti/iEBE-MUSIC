@@ -12,6 +12,7 @@ import shutil
 import re
 import h5py
 import numpy as np
+import freestream
 from fetch_IPGlasma_event_from_hdf5_database import fecth_an_IPGlasma_event, fecth_an_IPGlasma_event_Tmunu
 from fetch_3DMCGlauber_event_from_hdf5_database import fecth_an_3DMCGlauber_event
 
@@ -50,6 +51,31 @@ def mapEventIdToCentrality(event_id):
     return (centrality)
 
 
+##########################################################################################
+# This function converts a matrix file to a table file for freestreaming
+
+def convert_matrix_to_table(infile, outfile, n_grid=100, lower=-10.0, upper=10.0):
+    data = np.loadtxt(infile, comments='#')
+    data = data.reshape(n_grid, n_grid)
+
+    step = (upper - lower) / n_grid
+    x = np.linspace(lower + step/2, upper - step/2, n_grid)
+    y = x
+    X, Y = np.meshgrid(x, y, indexing='xy')
+    
+    eps_flat = data.ravel()
+    table = np.column_stack([
+        np.zeros_like(eps_flat),
+        X.ravel(),
+        Y.ravel(),
+        eps_flat,
+        np.ones_like(eps_flat),
+        np.zeros((eps_flat.size, 13))
+    ])
+    header = f"# dummy 1 etamax= 0 xmax= {n_grid} ymax= {n_grid} deta= 0 dx= {step} dy= {step}"
+    np.savetxt(outfile, table, fmt="%.6e", header=header, comments='')
+############################################################################################
+
 def get_initial_condition(database, initial_type, iev, event_id, seed_add,
                           final_results_folder):
     """This funciton get initial conditions"""
@@ -83,6 +109,28 @@ def get_initial_condition(database, initial_type, iev, event_id, seed_add,
             collect_ipglasma_event(res_path)
         connect_ipglasma_event(res_path, initial_type, file_name)
         return status, file_name
+    ########################################################################
+    elif initial_type == "TRENTo":
+        trento_local_folder = "TRENTo/trento_results"
+        res_path = path.join(path.abspath(final_results_folder),
+                             "trento_results_{}".format(event_id))
+        file_name = "test_path.dat/0.dat"
+        #check existing events ...
+        if not path.exists(path.join(res_path, file_name)):
+            run_trento(event_id)
+            collect_trento_event(res_path)
+            if not path.exists(path.join(res_path, file_name)):
+                    # TRENTo event failed
+                    print("TRENTo event failed ... ")
+                    status = False
+            
+        else:
+            print("TRENTo event exists ...")
+            print("No need to rerun ...")
+            
+        connect_trento_event(res_path, initial_type, file_name)
+        return status, file_name
+    #########################################################################
     elif initial_type == "3DMCGlauber_dynamical":
         if database == "self" or database == "fixCentrality":
             file_name = "strings_event_{}.dat".format(event_id)
@@ -167,12 +215,43 @@ def get_initial_condition(database, initial_type, iev, event_id, seed_add,
               + "Do not recognize the initial condition type: {}".format(
                   initial_type))
         sys.exit(1)
+        
+        
+def run_trento(event_id):
+    """This functions run TRENTo"""
+    print(" \U0001F680  Run TRENTo \u2192 freestream...")
+    call("bash ./run_trento.sh {}".format(event_id), shell=True)
 
 
 def run_ipglasma(event_id):
     """This functions run IPGlasma"""
     print("\U0001F3B6  Run IPGlasma ... ")
     call("bash ./run_ipglasma.sh {}".format(event_id), shell=True)
+    
+    
+def collect_trento_event(final_results_folder):
+    """This function collects the ipglasma results"""
+    if path.exists(final_results_folder):
+        shutil.rmtree(final_results_folder)
+    shutil.move("TRENTo/trento_results", final_results_folder)
+    
+    
+def connect_trento_event(res_path, initial_type, filename):
+    if initial_type == "TRENTo":
+        file_path = path.join(res_path, filename)
+        initial = np.loadtxt(file_path)
+        fs = freestream.FreeStreamer(initial, 10.0, 1.0)
+        e = fs.energy_density()
+        e_path = path.join(res_path, "e.dat")
+        np.savetxt(e_path, e)
+        hydro_file = "hydro.dat"
+        hydro_out = path.join(res_path, hydro_file)
+        convert_matrix_to_table(e_path, hydro_out)
+        hydro_initial_file = "MUSIC/initial/e.dat"
+        if path.islink(hydro_initial_file):
+            remove(hydro_initial_file)
+        call("ln -s {0:s} {1:s}".format(hydro_out,
+                                        hydro_initial_file),shell=True)  
 
 
 def collect_ipglasma_event(final_results_folder):
@@ -850,6 +929,7 @@ if __name__ == "__main__":
         "3DMCGlauber_dynamical",
         "3DMCGlauber_participants",
         "3DMCGlauber_consttau",
+        "TRENTo",
     ]
     if INITIAL_CONDITION_TYPE not in known_initial_types:
         print("\U0001F6AB  "
