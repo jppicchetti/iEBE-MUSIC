@@ -6,7 +6,7 @@
 
 # control parameters
 control_dict = {
-    'initial_state_type': "trento",
+    'initial_state_type': "TRENTo",
     'walltime': "10:00:00",  # walltime to run
     'save_hydro_surfaces': False,  # flag to save hydro surfaces
     'save_UrQMD_files': False,  # flag to save UrQMD files
