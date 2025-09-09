@@ -34,7 +34,7 @@ rm -fr kompost_code/.git
 
 # download MUSIC
 rm -fr MUSIC_code
-git clone --depth=3 https://github.com/MUSIC-fluid/MUSIC -b chun_dev MUSIC_code
+git clone --depth=3 https://github.com/MUSIC-fluid/MUSIC -b resummedTransportCoeff MUSIC_code
 (cd MUSIC_code; git checkout e898cc826efc0303f2dd688602e6c604c9ef0f91)
 rm -fr MUSIC_code/.git
 
