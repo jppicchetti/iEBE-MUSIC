@@ -466,7 +466,7 @@ music_dict = {
     'freeze_out_method': 4,  # method for hyper-surface finder
     # 4: Cornelius
     'freeze_surface_in_binary':
-        1,  # switch to output surface file in binary format
+        0,  # switch to output surface file in binary format
     'average_surface_over_this_many_time_steps':
         10,  # the step skipped in the tau
     'freeze_Ncell_x_step': 1,
