@@ -64,7 +64,7 @@ rm -fr hadronic_afterburner_toolkit_code/.git
 
 #download deltaf_tables for iSS
 (
-  cd iss_code/iSS_tables/deltaf_tables/urqmd
+  cd iSS_code/iSS_tables/deltaf_tables/urqmd
   bash download_NEoS4D_deltafCoeffs.sh
 )
 
