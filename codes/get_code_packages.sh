@@ -40,7 +40,7 @@ rm -fr MUSIC_code/.git
 
 # download iSS particle sampler
 rm -fr iSS_code
-git clone --depth=3 https://github.com/chunshen1987/iSS -b dev iSS_code
+git clone --depth=3 https://github.com/chunshen1987/iSS -b 4DEoS iSS_code
 (cd iSS_code; git checkout b612a8e425d3e1dfc2d2b71cd208df6810c783be)
 rm -fr iSS_code/.git
 
@@ -61,6 +61,12 @@ rm -fr hadronic_afterburner_toolkit_code
 git clone --depth=5 https://github.com/chunshen1987/hadronic_afterburner_toolkit -b main hadronic_afterburner_toolkit_code
 (cd hadronic_afterburner_toolkit_code; git checkout 1045565e1213bff1c28017c74d69a77ff8b5299e)
 rm -fr hadronic_afterburner_toolkit_code/.git
+
+#download deltaf_tables for iSS
+(
+  cd iss_code/iSS_tables/deltaf_tables/urqmd
+  bash download_NEoS4D_deltafCoeffs.sh
+)
 
 # download nucleus configurations for 3D-Glauber
 (cd 3dMCGlauber_code/tables; bash download_nucleusTables.sh;)
