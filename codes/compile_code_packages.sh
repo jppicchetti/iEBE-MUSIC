@@ -157,6 +157,17 @@ cp urqmd_code/urqmd/runqmd.sh urqmd/
 cp urqmd_code/urqmd/uqmd.burner urqmd/
 
 
+# compile SMASH
+echo -e "${Green}compile SMASH ... ${NC}"
+(
+cd smash_code
+mkdir build && cd build
+cmake -DPythia_CONFIG_EXECUTABLE="$HOME/pythia8315/bin/pythia8-config" ..
+make -j"$(nproc)" smash
+)
+
+
+
 # download hadronic afterner
 echo -e "${Green}compile hadronic afterburner toolkit ... ${NC}"
 (
