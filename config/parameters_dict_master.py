@@ -832,7 +832,7 @@ Parameters_list = [(ipglasma_dict, "input", 3), (kompost_dict, "setup.ini", 4),
                    (hadronic_afterburner_toolkit_dict, "parameters.dat", 1), (trento_dict, "input", 5),
                    (isobars_conf_dict_target, "isobars-conf_target.yaml", 6),
                    (isobars_conf_dict_projectile, "isobars-conf_projectile.yaml", 6),
-                   (smash_config_dict, "config.yaml", 6)]
+                   (smash_config_dict, "config.yaml", 7)]
 
 path_list = [
     'model_parameters/IPGlasma/', 'model_parameters/KoMPoST/',
@@ -1023,6 +1023,18 @@ def output_parameters_to_files(workfolder="."):
                     f.write(f"{key_name} = {value}\n")
             elif itype == 6:
                 yaml.safe_dump(parameters_dict, f, sort_keys=False)
+                
+            elif itype == 7:
+                yaml.safe_dump(
+                    parameters_dict,
+                    f,
+                    sort_keys=False,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    indent=2,
+                    width=4096,           
+                )
+
                 
         if itype == 2:
             f.write("EndOfData")
