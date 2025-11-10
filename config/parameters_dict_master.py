@@ -689,22 +689,22 @@ smash_config_dict = {
     "Output": {
         "Output_Interval": 10.0,
         "Particles": {
-            "Format": "["Binary"]", # Options: "ASCII", "Binary", "Oscar2013"
+            "Format": ["Binary"], # Options: "ASCII", "Binary", "Oscar2013"
             "Extended": True,
-            "Quantities": "[ "t","x","y","z",
+            "Quantities": [ "t","x","y","z",
               "mass","p0","px","py","pz",
               "pdg","ID","charge",
               "ncoll","form_time","xsecfac",
               "proc_id_origin","proc_type_origin","time_last_coll",
               "pdg_m other1","pdg_mother2",
               "baryon_number","strangeness"
-             ]",
+             ],
         },
     },
     "Modi": {
         "List": {
-            "File_Directory": ""list"",
-            "File_Name": ""OSCAR.DAT"",
+            "File_Directory": "list",
+            "File_Name": "OSCAR.DAT",
             "Shift_Id": 0,
         },
     },
