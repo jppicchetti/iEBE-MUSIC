@@ -15,7 +15,7 @@ control_dict = {
     'initial_state_type':
         "TRENTo",  # options: TRENTo, IPGlasma, IPGlasma+KoMPoST,
     #          3DMCGlauber_dynamical, 3DMCGlauber_consttau
-    'afterburner_type': "UrQMD",  # options: UrQMD, decay
+    'afterburner_type': "SMASH",  # options: UrQMD, decay, SMASH
     'save_ipglasma_results': False,  # flag to save IPGlasma results
     'save_kompost_results': False,  # flag to save kompost results
     'save_hydro_surfaces': False,  # flag to save hydro surfaces
@@ -608,6 +608,7 @@ iss_dict = {
         0,  # output particle samples into individual files
     'store_samples_in_memory': 1,  # flag to store particle samples in memory
     'use_OSCAR_format': 1,  # output results in OSCAR format
+    'use_OSCAR2013': 1,  # output results in OSCAR2013 format
     'use_gzip_format': 0,  # output results in gzip format (only works with
     # store_samples_in_memory = 1)
     'use_binary_format': 0,
@@ -670,6 +671,45 @@ iss_dict = {
     'output_dN_dxtdy_4all': 0,  # Output dN_dxtdy table. Only applicable 
     # if MC_sampling parameter is set to 2.
 }
+
+# SMASH
+
+smash_config_dict = {
+    "Logging": {
+        "default": "INFO",
+    },
+    "General": {
+        "Modus": "List",
+        "Time_Step_Mode": "None",
+        "Delta_Time": 0.1,
+        "End_Time": 100.0,
+        "Random_Seed": -1,
+        "Nevents": 50,
+    },
+    "Output": {
+        "Output_Interval": 10.0,
+        "Particles": {
+            "Format": "["Binary"]", # Options: "ASCII", "Binary", "Oscar2013"
+            "Extended": True,
+            "Quantities": "[ "t","x","y","z",
+              "mass","p0","px","py","pz",
+              "pdg","ID","charge",
+              "ncoll","form_time","xsecfac",
+              "proc_id_origin","proc_type_origin","time_last_coll",
+              "pdg_m other1","pdg_mother2",
+              "baryon_number","strangeness"
+             ]",
+        },
+    },
+    "Modi": {
+        "List": {
+            "File_Directory": ""list"",
+            "File_Name": ""OSCAR.DAT"",
+            "Shift_Id": 0,
+        },
+    },
+}
+
 
 # hadronic afterburner toolkit
 hadronic_afterburner_toolkit_dict = {
@@ -791,14 +831,15 @@ Parameters_list = [(ipglasma_dict, "input", 3), (kompost_dict, "setup.ini", 4),
                    (iss_dict, "iSS_parameters.dat", 1),
                    (hadronic_afterburner_toolkit_dict, "parameters.dat", 1), (trento_dict, "input", 5),
                    (isobars_conf_dict_target, "isobars-conf_target.yaml", 6),
-                   (isobars_conf_dict_projectile, "isobars-conf_projectile.yaml", 6)]
+                   (isobars_conf_dict_projectile, "isobars-conf_projectile.yaml", 6),
+                   (smash_config_dict, "config.yaml", 6)]
 
 path_list = [
     'model_parameters/IPGlasma/', 'model_parameters/KoMPoST/',
     'model_parameters/3dMCGlauber/', 'model_parameters/MUSIC/',
     'model_parameters/photonEmission_hydroInterface/', 'model_parameters/iSS/',
     'model_parameters/hadronic_afterburner_toolkit/', 'model_parameters/TRENTo', 'model_parameters/Isobar-Sampler_target',
-    'model_parameters/Isobar-Sampler_projectile'
+    'model_parameters/Isobar-Sampler_projectile', 'model_parameters/SMASH'
 ]
 
 
@@ -900,6 +941,15 @@ def update_parameters_dict(par_dict_path, ran_seed):
         iss_dict['use_binary_format'] = 1
         iss_dict['perform_decays'] = 1
         hadronic_afterburner_toolkit_dict['read_in_mode'] = 9
+    ##################################################################################
+    smash_config_dict.update(parameters_dict.smash_config_dict)
+    if afterburner_type == "SMASH":
+        music_dict['EOS_to_use'] = 91
+        iss_dict['afterburner_type'] = 2
+        iss_dict['use_OSCAR_format'] = 1
+        iss_dict['use_OSCAR2013'] = 1
+        iss_dict['perform_decays'] = 0
+    ###################################################################################
 
 
 def update_parameters_bayesian(bayes_file):
