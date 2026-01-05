@@ -40,7 +40,7 @@ rm -fr MUSIC_code/.git
 
 # download iSS particle sampler
 rm -fr iSS_code
-git clone --depth=3 https://github.com/chunshen1987/iSS -b XSCAPE iSS_code
+git clone --depth=3 https://github.com/chunshen1987/iSS -b dev iSS_code
 #(cd iSS_code; git checkout b612a8e425d3e1dfc2d2b71cd208df6810c783be)
 rm -fr iSS_code/.git
 
@@ -57,9 +57,9 @@ git clone --depth=1 https://Chunshen1987@bitbucket.org/Chunshen1987/urqmd_afterb
 rm -fr urqmd_code/.git
 
 # download SMASH afterburner
-rm -rf smash_code
-git clone --depth=1 https://github.com/smash-transport/smash.git -b SMASH-3.2.2  smash_code 
-rm -rf smash_code/.git
+#rm -rf smash_code
+#git clone --depth=1 https://github.com/smash-transport/smash.git -b SMASH-3.2.2  smash_code 
+#rm -rf smash_code/.git
 
 
 
