@@ -22,12 +22,14 @@ RUN yum -y install \
         time \
         vim \
         wget \
+        openmpi \
+        boost-devel \
         && \
     yum clean all
 
 # Install pre-reqs python packages
 RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install numpy h5py scipy
+    python3 -m pip install numpy h5py scipy PyYAML joblib mpmath freestream
 
 ENV HOME /opt/
 
