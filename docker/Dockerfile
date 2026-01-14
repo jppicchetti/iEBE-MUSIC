@@ -35,7 +35,7 @@ ENV HOME /opt/
 
 # download and compile the iEBE-MUSIC framework
 RUN cd ${HOME} && \
-    git clone --depth=1 https://github.com/genilssom/iEBE-MUSIC -b TRENToFreestream && \
+    git clone https://github.com/genilssom/iEBE-MUSIC -b TRENToFreestream && \
     cd iEBE-MUSIC/codes && \
     ./get_code_packages.sh && \
     ./compile_code_packages.sh && \
