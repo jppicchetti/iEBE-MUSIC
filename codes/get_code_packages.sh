@@ -70,10 +70,10 @@ git clone https://github.com/chunshen1987/hadronic_afterburner_toolkit -b main h
 #rm -fr hadronic_afterburner_toolkit_code/.git
 
 #download deltaf_tables for iSS
-(
-  cd iSS_code/iSS_tables/deltaf_tables/urqmd
-  bash download_NEoS4D_deltafCoeffs.sh
-)
+#(
+#  cd iSS_code/iSS_tables/deltaf_tables/urqmd
+#  bash download_NEoS4D_deltafCoeffs.sh
+#)
 
 # download nucleus configurations for 3D-Glauber
 #(cd 3dMCGlauber_code/tables; bash download_nucleusTables.sh;)
