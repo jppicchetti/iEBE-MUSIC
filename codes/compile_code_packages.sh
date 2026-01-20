@@ -45,48 +45,48 @@ fi
 
 
 # compile 3dMCGlauber
-echo -e "${Green}compile 3dMCGlauber ... ${NC}"
-(
-    cd 3dMCGlauber_code
-    ./get_LHAPDF.sh
-    rm -fr build
-    mkdir -p build
-    cd build
-    CC=${CCFlag} CXX=${CXXFlag} cmake .. -Dlink_with_lib=OFF
-    make -j${number_of_cores_to_compile}
-    make install
-)
-status=$?
-if [ $status -ne 0 ]; then
-    exit $status
-fi
+#echo -e "${Green}compile 3dMCGlauber ... ${NC}"
+#(
+#    cd 3dMCGlauber_code
+#    ./get_LHAPDF.sh
+#    rm -fr build
+#    mkdir -p build
+#    cd build
+#    CC=${CCFlag} CXX=${CXXFlag} cmake .. -Dlink_with_lib=OFF
+#    make -j${number_of_cores_to_compile}
+#    make install
+#)
+#status=$?
+#if [ $status -ne 0 ]; then
+#    exit $status
+#fi
 
 # compile IPGlasma
-echo -e "${Green}compile IPGlasma ... ${NC}"
-(
-    cd ipglasma_code
-    rm -fr build
-    mkdir -p build
-    cd build
-    CC=${CCFlag} CXX=${CXXFlag} cmake .. -DdisableMPI=ON
-    make -j${number_of_cores_to_compile}
-    make install
-)
-status=$?
-if [ $status -ne 0 ]; then
-    exit $status
-fi
+#echo -e "${Green}compile IPGlasma ... ${NC}"
+#(
+#    cd ipglasma_code
+#    rm -fr build
+#    mkdir -p build
+#    cd build
+#    CC=${CCFlag} CXX=${CXXFlag} cmake .. -DdisableMPI=ON
+#    make -j${number_of_cores_to_compile}
+#    make install
+#)
+#status=$?
+#if [ $status -ne 0 ]; then
+#    exit $status
+#fi
 
 # compile KoMPoST
-echo -e "${Green}compile KoMPoST ... ${NC}"
-(
-    cd kompost_code
-    CXX=${CXXFlag} make
-)
-status=$?
-if [ $status -ne 0 ]; then
-    exit $status
-fi
+#echo -e "${Green}compile KoMPoST ... ${NC}"
+#(
+#    cd kompost_code
+#    CXX=${CXXFlag} make
+#)
+#status=$?
+#if [ $status -ne 0 ]; then
+#    exit $status
+#fi
 
 # compile MUSIC
 echo -e "${Green}compile MUSIC ... ${NC}"
@@ -109,20 +109,20 @@ cp MUSIC_code/utilities/sweeper.sh MUSIC/
 (cd MUSIC; mkdir -p initial)
 
 # compile photonEmission_hydroInterface
-echo -e "${Green}compile photonEmission_hydroInterface ... ${NC}"
-(
-    cd photonEmission_hydroInterface_code
-    rm -fr build
-    mkdir -p build
-    cd build
-    CC=${CCFlag} CXX=${CXXFlag} cmake ..
-    make -j${number_of_cores_to_compile}
-    make install
-)
-status=$?
-if [ $status -ne 0 ]; then
-    exit $status
-fi
+#echo -e "${Green}compile photonEmission_hydroInterface ... ${NC}"
+#(
+#    cd photonEmission_hydroInterface_code
+#    rm -fr build
+#    mkdir -p build
+#    cd build
+#    CC=${CCFlag} CXX=${CXXFlag} cmake ..
+#    make -j${number_of_cores_to_compile}
+#    make install
+#)
+#status=$?
+#if [ $status -ne 0 ]; then
+#    exit $status
+#fi
 
 # download iSS particle sampler
 echo -e "${Green}compile iSS ... ${NC}"
