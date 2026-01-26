@@ -34,14 +34,14 @@ git clone https://github.com/jppicchetti/trento_sync.git trento_code
 
 # download MUSIC
 rm -fr MUSIC_code
-git clone --depth=3 https://github.com/MUSIC-fluid/MUSIC -b resummedTransportCoeff MUSIC_code
-(cd MUSIC_code; git checkout e898cc826efc0303f2dd688602e6c604c9ef0f91)
+git clone https://github.com/MUSIC-fluid/MUSIC -b resummedTransportCoeff MUSIC_code
+#(cd MUSIC_code; git checkout e898cc826efc0303f2dd688602e6c604c9ef0f91)
 rm -fr MUSIC_code/.git
 
 # download iSS particle sampler
 rm -fr iSS_code
-git clone --depth=3 https://github.com/chunshen1987/iSS -b dev iSS_code
-(cd iSS_code; git checkout b612a8e425d3e1dfc2d2b71cd208df6810c783be)
+git clone https://github.com/chunshen1987/iSS -b dev iSS_code
+#(cd iSS_code; git checkout b612a8e425d3e1dfc2d2b71cd208df6810c783be)
 rm -fr iSS_code/.git
 
 # download photonEmission wrapper
@@ -52,8 +52,8 @@ rm -fr iSS_code/.git
 
 # download UrQMD afterburner
 rm -fr urqmd_code
-git clone --depth=1 https://Chunshen1987@bitbucket.org/Chunshen1987/urqmd_afterburner.git urqmd_code
-(cd urqmd_code; git checkout 704c886)
+git clone https://Chunshen1987@bitbucket.org/Chunshen1987/urqmd_afterburner.git urqmd_code
+#(cd urqmd_code; git checkout 704c886)
 rm -fr urqmd_code/.git
 
 # download SMASH afterburner
@@ -65,8 +65,8 @@ rm -fr urqmd_code/.git
 
 # download hadronic afterner
 rm -fr hadronic_afterburner_toolkit_code
-git clone --depth=5 https://github.com/chunshen1987/hadronic_afterburner_toolkit -b main hadronic_afterburner_toolkit_code
-(cd hadronic_afterburner_toolkit_code; git checkout 1045565e1213bff1c28017c74d69a77ff8b5299e)
+git clone https://github.com/chunshen1987/hadronic_afterburner_toolkit -b main hadronic_afterburner_toolkit_code
+#(cd hadronic_afterburner_toolkit_code; git checkout 1045565e1213bff1c28017c74d69a77ff8b5299e)
 rm -fr hadronic_afterburner_toolkit_code/.git
 
 #download deltaf_tables for iSS
