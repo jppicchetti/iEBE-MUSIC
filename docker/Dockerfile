@@ -28,8 +28,15 @@ RUN yum -y install \
     yum clean all
 
 # Install pre-reqs python packages
-RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install numpy h5py scipy PyYAML joblib mpmath freestream
+RUN python3 -m pip install --no-cache-dir --upgrade pip && \
+    python3 -m pip install \ 
+    numpy==1.24.4 \
+    scipy==1.10.1 \
+     h5py \
+     PyYAML \ 
+     joblib \ 
+     mpmath \ 
+     freestream
 
 ENV HOME /opt/
 
