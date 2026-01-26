@@ -76,8 +76,8 @@ rm -fr hadronic_afterburner_toolkit_code/.git
 #)
 
 # download nucleus configurations for 3D-Glauber
-(cd 3dMCGlauber_code/tables; bash download_nucleusTables.sh;)
+#(cd 3dMCGlauber_code/tables; bash download_nucleusTables.sh;)
 # download nucleus configurations for IP-Glasma
-(cd ipglasma_code/nucleusConfigurations; bash download_nucleusTables.sh;)
+#(cd ipglasma_code/nucleusConfigurations; bash download_nucleusTables.sh;)
 # download essential EOS files for hydro simulations
 (cd MUSIC_code/EOS; bash download_hotQCD.sh; bash download_Neos2D.sh bqs;)
