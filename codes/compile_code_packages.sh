@@ -31,7 +31,7 @@ echo -e "${Green}Generate isobar seeds ... ${NC}"
 (
     cd isobar_sampler_code
     ./exec/make_seeds.py ../../config/seeds-conf_AuAu.yaml
-    cp ../../config/nucleon-seeds_AuAu.hdf ../
+    cp nucleon-seeds_AuAu.hdf ../
 )
 # compile TRENTo
 echo -e "${Green}compile TRENTo ... ${NC}"
