@@ -101,9 +101,9 @@ seed=$5
 export PYTHONIOENCODING=utf-8
 #########################################################
 # Force HOME to a writable directory
-export HOME=$(pwd)
-export XDG_DATA_HOME=${HOME}/.local/share
-mkdir -p ${XDG_DATA_HOME}/trento
+export SINGULARITYENV_HOME=$(pwd)
+export SINGULARITYENV_XDG_DATA_HOME=$(pwd)/.local/share
+mkdir -p $(pwd)/.local/share/trento
 #########################################################
 export PATH="${PATH}:/usr/lib64/openmpi/bin:/usr/local/gsl/2.5/x86_64/bin"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/gsl/2.5/x86_64/lib64"
