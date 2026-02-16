@@ -59,3 +59,5 @@ RUN yum clean all
 
 ENV PYTHONIOENCODING utf-8
 WORKDIR ${HOME}
+
+RUN mkdir -p /opt/.local/share/trento
