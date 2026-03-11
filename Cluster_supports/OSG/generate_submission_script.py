@@ -97,22 +97,50 @@ nthreads=$4
 seed=$5
 
 
-# Run the singularity container
 export PYTHONIOENCODING=utf-8
-#########################################################
-# Force HOME to a writable directory
-export SINGULARITYENV_HOME=$(pwd)
-export SINGULARITYENV_XDG_DATA_HOME=$(pwd)/.local/share
-mkdir -p $(pwd)/.local/share/trento
-#########################################################
 export PATH="${PATH}:/usr/lib64/openmpi/bin:/usr/local/gsl/2.5/x86_64/bin"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/gsl/2.5/x86_64/lib64"
+
+jobdir=$(pwd)
+export JOBDIR="${jobdir}"
+export TMPDIR="${jobdir}/tmp"
+export HOME="${jobdir}"
+export XDG_DATA_HOME="${jobdir}/.local/share"
+export XDG_CACHE_HOME="${jobdir}/.cache"
+export TRENTO_CACHE="${jobdir}/.trento"
+
+export SINGULARITYENV_HOME="${HOME}"
+export SINGULARITYENV_TMPDIR="${TMPDIR}"
+export SINGULARITYENV_XDG_DATA_HOME="${XDG_DATA_HOME}"
+export SINGULARITYENV_XDG_CACHE_HOME="${XDG_CACHE_HOME}"
+export SINGULARITYENV_TRENTO_CACHE="${TRENTO_CACHE}"
+
+mkdir -p "${TMPDIR}"
+mkdir -p "${XDG_DATA_HOME}"
+mkdir -p "${XDG_CACHE_HOME}"
+mkdir -p "${TRENTO_CACHE}"
+mkdir -p "${XDG_DATA_HOME}/trento"
+
+touch "${TRENTO_CACHE}/write_test.txt" || { echo "Cannot write to TRENTO_CACHE"; exit 101; }
+touch "${XDG_DATA_HOME}/write_test.txt" || { echo "Cannot write to XDG_DATA_HOME"; exit 102; }
+touch "${TMPDIR}/write_test.txt" || { echo "Cannot write to TMPDIR"; exit 103; }
 
 printf "Start time: `/bin/date`\\n"
 printf "Job is running on node: `/bin/hostname`\\n"
 printf "system kernel: `uname -r`\\n"
 printf "Job running as user: `/usr/bin/id`\\n"
 
+echo "==== Environment debug ===="
+echo "PWD=${PWD}"
+echo "HOME=${HOME}"
+echo "TMPDIR=${TMPDIR}"
+echo "XDG_DATA_HOME=${XDG_DATA_HOME}"
+echo "XDG_CACHE_HOME=${XDG_CACHE_HOME}"
+echo "TRENTO_CACHE=${TRENTO_CACHE}"
+echo "SINGULARITYENV_HOME=${SINGULARITYENV_HOME}"
+echo "SINGULARITYENV_XDG_DATA_HOME=${SINGULARITYENV_XDG_DATA_HOME}"
+echo "SINGULARITYENV_TRENTO_CACHE=${SINGULARITYENV_TRENTO_CACHE}"
+echo "==========================="
 """)
     if para_dict_["bayesFlag"]:
         script.write("""bayesFile=$6
