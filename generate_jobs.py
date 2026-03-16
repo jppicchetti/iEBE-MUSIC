@@ -652,11 +652,8 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
               mkdir(path.join(event_folder, 'TRENTo/Isobar-Sampler_projectile'))
               
               #################################start_configuration############################################
-              nseeds = para_dict.control_dict["isobar_nseeds"]
-              offset = para_dict.control_dict["isobar_projectile_offset"]
-              
-              target_start = event_id % nseeds
-              projectile_start = (event_id + offset) % nseeds
+              target_start = 2*event_id
+              projectile_start = 2*event_id + 1
               
               target_yaml_src = path.join(param_folder, 'Isobar-Sampler_target/isobars-conf_target.yaml')
               projectile_yaml_src = path.join(param_folder, 'Isobar-Sampler_projectile/isobars-conf_projectile.yaml')
