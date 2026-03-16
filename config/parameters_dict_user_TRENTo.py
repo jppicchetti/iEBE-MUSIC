@@ -10,6 +10,8 @@ control_dict = {
     'walltime': "10:00:00",  # walltime to run
     'save_hydro_surfaces': False,  # flag to save hydro surfaces
     'save_UrQMD_files': False,  # flag to save UrQMD files
+    'isobar_nseeds': 10000,
+    'isobar_projectile_offset': 5000,
 }
 
 # isobar-sample
@@ -18,7 +20,7 @@ isobars_conf_dict_target = {
         "description": "Options for the isobar nucleon‑position samples",
         "number_configs": {
             "description": "Number of configurations to be sampled.",
-            "value": 5000,
+            "value": 1,
         },
         "number_nucleons": {
             "description": "Mass number A of the nuclei.",
@@ -64,7 +66,7 @@ isobars_conf_dict_projectile = {
         "description": "Options for the isobar nucleon‑position samples",
         "number_configs": {
             "description": "Number of configurations to be sampled.",
-            "value": 5000,
+            "value": 1,
         },
         "number_nucleons": {
             "description": "Mass number A of the nuclei.",
