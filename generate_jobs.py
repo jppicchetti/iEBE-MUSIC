@@ -10,6 +10,7 @@ import argparse
 import pickle
 import random
 import time
+import yaml
 from math import ceil
 from glob import glob
 from utilities.Pick_EOS_From_File import fetch_an_EOS
@@ -649,11 +650,42 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
               mkdir(path.join(event_folder, 'TRENTo'))
               mkdir(path.join(event_folder, 'TRENTo/Isobar-Sampler_target'))
               mkdir(path.join(event_folder, 'TRENTo/Isobar-Sampler_projectile'))
+              
+              #################################start_configuration############################################
+              nseeds = para_dict.control_dict["isobar_nseeds"]
+              offset = para_dict.control_dict["isobar_projectile_offset"]
+              
+              target_start = event_id % nseeds
+              projectile_start = (event_id + offset) % nseeds
+              
+              target_yaml_src = path.join(param_folder, 'Isobar-Sampler_target/isobars-conf_target.yaml')
+              projectile_yaml_src = path.join(param_folder, 'Isobar-Sampler_projectile/isobars-conf_projectile.yaml')
+              with open(target_yaml_src, "r") as f:
+                  target_conf = yaml.safe_load(f)
+                  
+              with open(projectile_yaml_src, "r") as f:
+                  projectile_conf = yaml.safe_load(f) 
+                  
+                  
+              target_conf["isobar_samples"]["number_configs"]["value"] = 1
+              projectile_conf["isobar_samples"]["number_configs"]["value"] = 1
+              
+              target_conf["isobar_samples"]["start_configuration"] = {
+                  "description": "Starting configuration index in the seeds file",
+                  "value": int(target_start),
+              }
+              
+              projectile_conf["isobar_samples"]["start_configuration"] = {
+                    "description": "Starting configuration index in the seeds file",
+                    "value": int(projectile_start),
+              }   
+              
+              with open(path.join(event_folder, 'TRENTo/Isobar-Sampler_target/isobars-conf_target.yaml'), "w") as f:
+                  yaml.dump(target_conf, f, sort_keys=False)
+                  
+              with open(path.join(event_folder, 'TRENTo/Isobar-Sampler_projectile/isobars-conf_projectile.yaml'), "w") as f:
+                  yaml.dump(projectile_conf, f, sort_keys=False)
               # Copying the input files to the folders created above
-              shutil.copyfile(path.join(param_folder, 'Isobar-Sampler_projectile/isobars-conf_projectile.yaml'),
-                              path.join(event_folder, 'TRENTo/Isobar-Sampler_projectile/isobars-conf_projectile.yaml'))
-              shutil.copyfile(path.join(param_folder, 'Isobar-Sampler_target/isobars-conf_target.yaml'),
-                              path.join(event_folder, 'TRENTo/Isobar-Sampler_target/isobars-conf_target.yaml'))
               shutil.copyfile(path.join(param_folder, 'TRENTo/input'),
                               path.join(event_folder, 'TRENTo/input'))
 
