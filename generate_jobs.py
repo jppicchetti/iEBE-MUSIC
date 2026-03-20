@@ -610,7 +610,7 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
                            package_root_path, code_path, working_folder,
                            cluster_name, event_id, event_id_offset,
                            n_hydro_per_job, n_urqmd_per_hydro, n_threads,
-                           para_dict, afterburner_type, EOSType: int,
+                           para_dict, afterburner_type, isobar_seed_file, EOSType: int,
                            EOSId: int, EOSFileName: str, debugFlag: bool):
     """This function creates the event folder structure"""
     event_folder = path.join(working_folder, 'event_%d' % event_id)
@@ -687,19 +687,20 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
                               path.join(event_folder, 'TRENTo/input'))
 
               # Define an absolute path for Isobar to choose the correct seed
+              
+              if not isobar_seed_file:
+                  raise ValueError("For TRENTo + Isobar, you must provide --isobar_seed_file")
+              
+              seed_file_abs = path.abspath(isobar_seed_file)
 
               subprocess.call("ln -s {0:s} {1:s}".format(
-                    path.abspath(
-                        path.join(code_path,
-                                  'nucleon-seeds_AuAu.hdf')),
-                    path.join(event_folder, "TRENTo/Isobar-Sampler_projectile/nucleon-seeds_AuAu.hdf")),
+                    seed_file_abs,
+                    path.join(event_folder, "TRENTo/Isobar-Sampler_projectile/nucleon-seeds.hdf")),
                                 shell=True)
         
               subprocess.call("ln -s {0:s} {1:s}".format(
-                    path.abspath(
-                        path.join(code_path,
-                                  'nucleon-seeds_AuAu.hdf')),
-                    path.join(event_folder, "TRENTo/Isobar-Sampler_target/nucleon-seeds_AuAu.hdf")),
+                    seed_file_abs,
+                    path.join(event_folder, "TRENTo/Isobar-Sampler_target/nucleon-seeds.hdf")),
                                 shell=True)
              # Sets an absolute path to the Isobar and Trento exec
               subprocess.call("ln -s {0:s} {1:s}".format(
@@ -997,6 +998,13 @@ def main():
                         type=int,
                         default='-1',
                         help='Random Seed (-1: according to system time)')
+    #########################################################################
+    parser.add_argument('--isobar_seed_file',
+                        metavar='',
+                        type=str,
+                        default='',
+                        help='the seed file for isobar sampling')
+    #########################################################################
     parser.add_argument('--nocopy', action='store_true')
     parser.add_argument("--continueFlag", action="store_true")
     args = parser.parse_args()
@@ -1022,6 +1030,9 @@ def main():
         n_threads = args.n_threads
         job_id = args.job_process_id
         seed = args.random_seed
+        ###############################################
+        isobar_seed_file = args.isobar_seed_file
+        ###############################################
     except:
         parser.print_help()
         exit(0)
@@ -1223,7 +1234,7 @@ def main():
                                code_path, working_folder_name, cluster_name,
                                iev, event_id_offset, n_hydro_rescaled,
                                n_urqmd_per_hydro, n_threads, parameter_dict,
-                               afterburner_type, EOSType, EOSId, EOSFileName,
+                               afterburner_type, isobar_seed_file, EOSType, EOSId, EOSFileName,
                                debugFlag)
         event_id_offset += n_hydro_rescaled
     sys.stdout.write("\n")
