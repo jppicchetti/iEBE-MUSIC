@@ -26,13 +26,6 @@ esac
 number_of_cores_to_compile=$(( ${number_of_cores} > 10 ? 10 : ${number_of_cores} ))
 
 
-#Generate isobar seeds
-echo -e "${Green}Generate isobar seeds ... ${NC}"
-(
-    cd isobar_sampler_code
-    ./exec/make_seeds.py ../../config/seeds-conf_AuAu.yaml
-    cp nucleon-seeds_AuAu.hdf ../
-)
 # compile TRENTo
 echo -e "${Green}compile TRENTo ... ${NC}"
 (
@@ -164,14 +157,14 @@ cp urqmd_code/urqmd/runqmd.sh urqmd/
 cp urqmd_code/urqmd/uqmd.burner urqmd/
 
 
-# compile SMASH
-#echo -e "${Green}compile SMASH ... ${NC}"
-#(
-#cd smash_code
-#mkdir build && cd build
-#cmake -DPythia_CONFIG_EXECUTABLE="$HOME/pythia8315/bin/pythia8-config" ..
-#make -j"$(nproc)" smash
-#)
+ compile SMASH
+echo -e "${Green}compile SMASH ... ${NC}"
+(
+cd smash_code
+mkdir build && cd build
+cmake -DPythia_CONFIG_EXECUTABLE="$HOME/pythia8315/bin/pythia8-config" ..
+make -j"$(nproc)" smash
+)
 
 
 

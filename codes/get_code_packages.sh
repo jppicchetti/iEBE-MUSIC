@@ -34,13 +34,13 @@ git clone https://github.com/jppicchetti/trento_sync.git trento_code
 
 # download MUSIC
 rm -fr MUSIC_code
-git clone https://github.com/MUSIC-fluid/MUSIC -b chun_dev MUSIC_code
+git clone https://github.com/MUSIC-fluid/MUSIC -b resummedTransportCoeff MUSIC_code
 #(cd MUSIC_code; git checkout e898cc826efc0303f2dd688602e6c604c9ef0f91)
 rm -fr MUSIC_code/.git
 
 # download iSS particle sampler
 rm -fr iSS_code
-git clone https://github.com/chunshen1987/iSS -b dev iSS_code
+git clone https://github.com/chunshen1987/iSS -b XSCAPE iSS_code
 #(cd iSS_code; git checkout b612a8e425d3e1dfc2d2b71cd208df6810c783be)
 rm -fr iSS_code/.git
 
@@ -57,9 +57,9 @@ git clone https://Chunshen1987@bitbucket.org/Chunshen1987/urqmd_afterburner.git 
 rm -fr urqmd_code/.git
 
 # download SMASH afterburner
-#rm -rf smash_code
-#git clone --depth=1 https://github.com/smash-transport/smash.git -b SMASH-3.2.2  smash_code 
-#rm -rf smash_code/.git
+rm -rf smash_code
+git clone --depth=1 https://github.com/smash-transport/smash.git -b SMASH-3.2.2  smash_code 
+rm -rf smash_code/.git
 
 
 
@@ -70,10 +70,10 @@ git clone https://github.com/chunshen1987/hadronic_afterburner_toolkit -b main h
 rm -fr hadronic_afterburner_toolkit_code/.git
 
 #download deltaf_tables for iSS
-#(
-#  cd iSS_code/iSS_tables/deltaf_tables/urqmd
-#  bash download_NEoS4D_deltafCoeffs.sh
-#)
+(
+  cd iSS_code/iSS_tables/deltaf_tables/urqmd
+  bash download_NEoS4D_deltafCoeffs.sh
+)
 
 # download nucleus configurations for 3D-Glauber
 #(cd 3dMCGlauber_code/tables; bash download_nucleusTables.sh;)
