@@ -175,6 +175,42 @@ iss_dict = {
     'global_momentum_conservation': 0,  # flag to impose GMC
 }
 
+smash_config_dict = {
+    "Logging": {
+        "default": "INFO",
+    },
+    "General": {
+        "Modus": "List",
+        "Time_Step_Mode": "None",
+        "Delta_Time": 0.1,
+        "End_Time": 100.0,
+        "Randomseed": -1,
+        "Nevents": 1,
+    },
+    "Output": {
+        "Output_Interval": 10.0,
+        "Particles": {
+            "Format": ["Binary"], # Options: "ASCII", "Binary", "Oscar2013"
+            "Extended": True,
+            "Quantities": [ "t","x","y","z",
+              "mass","p0","px","py","pz",
+              "pdg","ID","charge",
+              "ncoll","form_time","xsecfac",
+              "proc_id_origin","proc_type_origin","time_last_coll",
+              "pdg_mother1","pdg_mother2",
+              "baryon_number","strangeness"
+             ],
+        },
+    },
+    "Modi": {
+        "List": {
+            "File_Directory": "list",
+            "File_Prefix": "OSCAR.DAT",
+            "Shift_Id": 0,
+        },
+    },
+}
+
 # hadronic afterburner toolkit
 hadronic_afterburner_toolkit_dict = {
     'event_buffer_size': 100000,  # the number of events read in at once
