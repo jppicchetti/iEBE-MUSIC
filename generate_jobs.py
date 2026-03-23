@@ -31,6 +31,7 @@ known_initial_types = [
 known_afterburner_types = [
     "UrQMD",
     "decay",
+    "SMASH"
 ]
 
 support_cluster_list = [
@@ -560,6 +561,15 @@ done
     cd ..
 done
         """)
+    elif afterburner_type == "SMASH":
+        script.write("""
+        cp OSCAR.DAT ../SMASH/list/OSCAR.DAT0
+        cd ../SMASH
+        ./smash -i list/config.yaml > run.log
+        cd ..
+        cp SMASH/data/0/particles_oscar2013_extended.bin UrQMD_results/particle_list.bin
+done
+        """)
     if HBT_flag:
         script.write("""
     cd hadronic_afterburner_toolkit
@@ -876,6 +886,21 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
                 path.abspath(path.join(code_path, 'urqmd_code/urqmd/urqmd.e')),
                 path.join(sub_event_folder, "urqmd/urqmd.e")),
                             shell=True)
+        ############################# SMASH ####################################   
+        if afterburner_type == "SMASH":
+            smash_dir = path.join(sub_event_folder, 'SMASH')
+            smash_list_dir = path.join(smash_dir, 'list')
+            mkdir(smash_dir)
+            mkdir(smash_list_dir)
+            
+            subprocess.call("ln -s {0:s} {1:s}".format(
+                path.abspath(path.join(code_path, 'smash_code/build/smash')),
+                path.join(smash_dir, "smash")),
+                            shell=True)
+            shutil.copyfile(
+                path.join(param_folder, 'SMASH/config.yaml'),
+                path.join(smash_list_dir, 'config.yaml'))
+        #######################################################################
         if HBT_flag:
             shutil.copytree(
                 path.join(code_path, 'hadronic_afterburner_toolkit'),

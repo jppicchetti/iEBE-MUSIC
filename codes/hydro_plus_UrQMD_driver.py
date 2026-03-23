@@ -877,14 +877,24 @@ def main(para_dict_):
                 urqmd_file_path),
                   flush=True)
             continue
+        
+        #########################################################################################
+        if para_dict_['afterburner_type'] == "SMASH":
+            curr_time = time.asctime()
+            print(f"\U0001F4BE [{curr_time}] SMASH is finished. " 
+                  f"Binary file saved in: {urqmd_file_path}", flush=True)
+            status = True
+        #########################################################################################
+        
+        else:
 
-        # finally collect results
-        run_spvn_analysis(urqmd_file_path, num_threads, final_results_folder,
-                          event_id)
+            # finally collect results
+            run_spvn_analysis(urqmd_file_path, num_threads, final_results_folder,
+                              event_id)
 
-        # zip results into a hdf5 database
-        status = zip_results_into_hdf5(final_results_folder, event_id,
-                                       para_dict_)
+            # zip results into a hdf5 database
+            status = zip_results_into_hdf5(final_results_folder, event_id,
+                                           para_dict_)
 
         # remove the unwanted outputs if event is finished properly
         if status:
