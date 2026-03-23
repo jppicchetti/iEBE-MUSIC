@@ -34,7 +34,7 @@ git clone https://github.com/jppicchetti/trento_sync.git trento_code
 
 # download MUSIC
 rm -fr MUSIC_code
-git clone https://github.com/MUSIC-fluid/MUSIC -b chun_dev MUSIC_code
+git clone https://github.com/MUSIC-fluid/MUSIC -b public_stable MUSIC_code
 #(cd MUSIC_code; git checkout e898cc826efc0303f2dd688602e6c604c9ef0f91)
 rm -fr MUSIC_code/.git
 
