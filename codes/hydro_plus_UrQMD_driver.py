@@ -489,6 +489,42 @@ def run_urqmd_shell(n_urqmd, final_results_folder, event_id, para_dict,
     return (urqmd_success, results_folder)
 
 
+def run_smash_analysis(smash_file_path, final_results_folder, event_id, analysis_mode="2D"):
+    """Run external SMASH analysis script and collect outputs"""
+    analysis_folder = path.join(final_results_folder, f"smash_results_{event_id}")
+    
+    if path.exists(analysis_folder):
+        shutil.rmtree(analysis_folder)
+    mkdir(analysis_folder)
+    
+    curr_time = time.asctime()
+    print(f"\U0001F52C [{curr_time}] Running SMASH analysis on {smash_file_path} ... ", flush=True)
+    
+    ret = call(
+        f"python3 analysis_cli_optimized.py"
+        f"--mode {analysis_mode}"
+        f"--format SMASH "
+        f"--file {smash_file_path} "
+        shell=True
+    )
+    
+    if ret != 0:
+        print(f"\U0000274C SMASH analysis script failed. ", flush=True)
+        return False
+    
+    generate_npz = smash_file_path + ".npz"
+    if not path.exists(generate_npz):
+        print(f"\U0000274C Expected analysis output not found: {generate_npz}. ", flush=True)
+        return False
+    
+    final_npz = path.join(analysis_folder, f"smash_analysis_{event_id}.npz")
+    shutil.move(generate_npz, final_npz)
+    
+    curr_time = time.asctime()
+    print(f"\U0001F52C [{curr_time}] Finished SMASH analysis, results saved to {final_npz} ... ", flush=True)
+    
+    return True    
+
 def run_spvn_analysis(urqmd_file_path, n_threads, final_results_folder,
                       event_id):
     """This function runs analysis"""
@@ -883,8 +919,8 @@ def main(para_dict_):
             curr_time = time.asctime()
             print(f"\U0001F4BE [{curr_time}] SMASH is finished. " 
                   f"Binary file saved in: {urqmd_file_path}", flush=True)
-            status = True
-        #########################################################################################
+            status = run_smash_analysis(urqmd_file_path, final_results_folder, event_id, analysis_mode="2D")
+        ##########################################################################################
         
         else:
 

@@ -628,6 +628,11 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
     mkdir(event_folder)
     shutil.copy(path.join(code_path, 'hydro_plus_UrQMD_driver.py'),
                 event_folder)
+    
+    #################################################################################
+    shutil.copy(path.join(code_path, 'analysis_cli_optimize.py'), event_folder)
+    #################################################################################
+    
     shutil.copy(
         path.join(package_root_path, 'utilities', 'IPGlasma_database',
                   'fetch_IPGlasma_event_from_hdf5_database.py'), event_folder)
