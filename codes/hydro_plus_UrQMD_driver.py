@@ -501,8 +501,8 @@ def run_smash_analysis(smash_file_path, final_results_folder, event_id, analysis
     print(f"\U0001F52C [{curr_time}] Running SMASH analysis on {smash_file_path} ... ", flush=True)
     
     ret = call(
-        f"python3 analysis_cli_optimized.py"
-        f"--mode {analysis_mode}"
+        f"python3 analysis_cli_optimized.py "
+        f"--mode {analysis_mode} "
         f"--format SMASH "
         f"--file {smash_file_path} ",
         shell=True
