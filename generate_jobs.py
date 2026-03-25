@@ -630,7 +630,7 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
                 event_folder)
     
     #################################################################################
-    shutil.copy(path.join(code_path, 'analysis_cli_optimize.py'), event_folder)
+    shutil.copy(path.join(code_path, 'analysis_cli_optimized.py'), event_folder)
     #################################################################################
     
     shutil.copy(
