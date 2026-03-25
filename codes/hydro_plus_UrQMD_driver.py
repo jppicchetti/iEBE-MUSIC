@@ -504,7 +504,7 @@ def run_smash_analysis(smash_file_path, final_results_folder, event_id, analysis
         f"python3 analysis_cli_optimized.py"
         f"--mode {analysis_mode}"
         f"--format SMASH "
-        f"--file {smash_file_path} "
+        f"--file {smash_file_path} ",
         shell=True
     )
     
