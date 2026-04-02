@@ -157,14 +157,24 @@ cp urqmd_code/urqmd/runqmd.sh urqmd/
 cp urqmd_code/urqmd/uqmd.burner urqmd/
 
 
- compile SMASH
+# compile SMASH
 echo -e "${Green}compile SMASH ... ${NC}"
 (
 cd smash_code
-mkdir build && cd build
-cmake -DPythia_CONFIG_EXECUTABLE="$HOME/pythia8315/bin/pythia8-config" ..
-make -j"$(nproc)" smash
+rm -fr build
+mkdir -p build && cd build
+CC=${CCFlag} CXX=${CXXFlag} cmake \
+        -DPythia_CONFIG_EXECUTABLE="${HOME}/pythia8315/bin/pythia8-config" \
+        -DTRY_USE_HEPMC=OFF \
+        ..
+    make -j${number_of_cores_to_compile} smash
 )
+status=$?
+if [ $status -ne 0 ]; then
+    exit $status
+fi
+mkdir -p smash
+cp smash_code/build/smash smash/
 
 
 
