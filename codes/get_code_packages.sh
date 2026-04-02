@@ -80,4 +80,4 @@ rm -fr hadronic_afterburner_toolkit_code/.git
 # download nucleus configurations for IP-Glasma
 #(cd ipglasma_code/nucleusConfigurations; bash download_nucleusTables.sh;)
 # download essential EOS files for hydro simulations
-(cd MUSIC_code/EOS; bash download_hotQCD.sh; bash download_Neos2D.sh bqs;)
+#(cd MUSIC_code/EOS; bash download_hotQCD.sh; bash download_Neos2D.sh bqs;)
