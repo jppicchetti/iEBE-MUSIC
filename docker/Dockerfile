@@ -56,7 +56,7 @@ RUN cd /tmp && \
 
 # download and compile the iEBE-MUSIC framework
 RUN cd ${HOME} && \
-    git clone https://github.com/genilssom/iEBE-MUSIC -b ITF_chain && \
+    git clone https://github.com/genilssom/iEBE-MUSIC -b NewChain && \
     cd iEBE-MUSIC/codes && \
     ./get_code_packages.sh && \
     ./compile_code_packages.sh && \
