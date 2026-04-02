@@ -49,7 +49,7 @@ RUN cd /tmp && \
     tar xzf pythia8315.tgz && \
     cd pythia8315 && \
     ./configure --prefix=${HOME}/pythia8315 && \
-    make -j$(nproc) && \
+    make -j2 && \
     make install && \
     cd /tmp && \
     rm -rf pythia8315 pythia8315.tgz
