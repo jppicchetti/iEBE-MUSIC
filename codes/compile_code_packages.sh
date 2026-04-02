@@ -23,7 +23,7 @@ case "${machine}" in
     Darwin*)    number_of_cores=`sysctl -n hw.ncpu`;;
     *)          number_of_cores=1;;
 esac
-number_of_cores_to_compile=$(( ${number_of_cores} > 10 ? 10 : ${number_of_cores} ))
+number_of_cores_to_compile=$(( ${number_of_cores} > 2 ? 2 : ${number_of_cores} ))
 
 
 # compile TRENTo
@@ -167,7 +167,7 @@ CC=${CCFlag} CXX=${CXXFlag} cmake \
         -DPythia_CONFIG_EXECUTABLE="${HOME}/pythia8315/bin/pythia8-config" \
         -DTRY_USE_HEPMC=OFF \
         ..
-    make -j${number_of_cores_to_compile} smash
+    make -j2 smash
 )
 status=$?
 if [ $status -ne 0 ]; then
