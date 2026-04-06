@@ -51,8 +51,8 @@ transfer_input_files = {0}, {1}, {2}
 transfer_input_files = {0}, {1}
 """.format(para_dict_['paraFile'], para_dict_['seedFile']))
 
-    script.write(
-            "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
+    #script.write(
+     #       "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
 
     script.write("""
 transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process)
@@ -155,7 +155,6 @@ echo "==========================="
 
     script.write("""
 cd playground/event_0
-mv EVENT_RESULTS_${processId}.tar.gz playground/event_0
 bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
