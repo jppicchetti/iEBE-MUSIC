@@ -4,7 +4,7 @@
 
 #download Isobar-Sampler
 rm -fr isobar_sampler_code
-git clone https://github.com/mluzum/Isobar-Sampler.git isobar_sampler_code
+git clone https://github.com/genilssom/Isobar-Sampler.git -b test-newchain isobar_sampler_code
 #(cd isobar_sampler_code; git checkout ...)
 #rm -fr isobar_sampler_code/.git
 
