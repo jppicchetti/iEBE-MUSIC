@@ -55,7 +55,7 @@ transfer_input_files = {0}, {1}
             "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
 
     script.write("""
-transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5
+transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process)
 
 error = log/job.$(Cluster).$(Process).error
 output = log/job.$(Cluster).$(Process).output
