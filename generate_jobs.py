@@ -459,9 +459,16 @@ export OMP_NUM_THREADS={0:d}
     script.close()
 
 
-def generate_script_spinPol(folder_name, nthreads, logfile):
+def generate_script_spinPol(folder_name, nthreads, logfile, afterburner_type):
     """This function generates script for spin polarization"""
     working_folder = folder_name
+
+    if afterburner_type == "SMASH":
+        sub_ev_prefix = "SMASHev"
+        results_dir = "SMASH_results"
+    else:
+        sub_ev_prefix = "UrQMDev"
+        results_dir = "UrQMD_results"
 
     script = open(path.join(working_folder, "run_spinPol.sh"), "w")
     script.write("""#!/bin/bash
@@ -471,12 +478,13 @@ unalias ls 2>/dev/null
 SubEventId=$1
 
 (
-cd UrQMDev_$SubEventId
+cd {1:s}_$SubEventId
 
-mkdir -p UrQMD_results
-rm -fr UrQMD_results/*
+mkdir -p {2:s}
+rm -fr {2:s}/*
 
-export OMP_NUM_THREADS={0:d}
+export OMP_NUM_THREADS={0:d}""".format(nthreads, sub_ev_prefix, results_dir))
+    script.write("""
 
 cd iSS
 mkdir -p results
@@ -500,6 +508,13 @@ def generate_script_afterburner(folder_name, HBT_flag, afterburner_type,
     """This function generates script for hadronic afterburner"""
     working_folder = folder_name
 
+    if afterburner_type == "SMASH":
+        sub_ev_prefix = "SMASHev"
+        results_dir = "SMASH_results"
+    else:
+        sub_ev_prefix = "UrQMDev"
+        results_dir = "UrQMD_results"
+
     script = open(path.join(working_folder, "run_afterburner.sh"), "w")
     script.write("""#!/bin/bash
 
@@ -508,13 +523,13 @@ unalias ls 2>/dev/null
 SubEventId=$1
 
 (
-cd UrQMDev_$SubEventId
+cd {sub_ev_prefix}_$SubEventId
 
-mkdir -p UrQMD_results
-rm -fr UrQMD_results/*
+mkdir -p {results_dir}
+rm -fr {results_dir}/*
 
 surfaceFile=`ls hydro_event | grep "surface"`
-for iev in {0..9}
+for iev in {{0..9}}
 do
     export OMP_NUM_THREADS=1
     cd iSS
@@ -525,11 +540,11 @@ do
     fi
     mkdir -p results
     rm -fr results/*
-    ln -s ../../hydro_event/${surfaceFile} results/surface.dat
+    ln -s ../../hydro_event/${{surfaceFile}} results/surface.dat
     cp ../hydro_event/music_input results/music_input
     cp ../hydro_event/spectators.dat results/spectators.dat 2>/dev/null
     if [ $SubEventId = "0" ] && [ $iev -eq "0" ]; then
-    """)
+    """.format(sub_ev_prefix=sub_ev_prefix, results_dir=results_dir))
     script.write("    ./iSS.e randomSeed=$RANDOMSEED 2>&1 {0}".format(logfile))
     script.write("""
     else
@@ -563,21 +578,21 @@ done
         """)
     elif afterburner_type == "SMASH":
         script.write("""
-        cp OSCAR.DAT ../SMASH/list/OSCAR.DAT0
-        cd ../SMASH
-        ./smash -i list/config.yaml > run.log
-        cd ..
-        cp SMASH/data/0/particles_oscar2013_extended.bin UrQMD_results/particle_list.bin
+    cp OSCAR.DAT ../SMASH/list/OSCAR.DAT0
+    cd ../SMASH
+    ./smash -i list/config.yaml > run.log
+    cd ..
+    cp SMASH/data/0/particles_oscar2013_extended.bin {results_dir}/particle_list.bin
 done
-        """)
+""".format(results_dir=results_dir))
     if HBT_flag:
         script.write("""
     cd hadronic_afterburner_toolkit
     mkdir -p results
     cd results; rm -fr *
-    ln -s ../../UrQMD_results/particle_list.bin particle_list.bin
+    ln -s ../../{results_dir}/particle_list.bin particle_list.bin
     cd ..
-""")
+""".format(results_dir=results_dir))
         script.write('    if [ $SubEventId = "0" ]; then\n')
         script.write(
             "        ./hadronic_afterburner_tools.e analyze_flow=0 analyze_HBT=1 particle_monval=211 distinguish_isospin=1 event_buffer_size=500000 2>&1 {0}\n"
@@ -587,7 +602,7 @@ done
             "        ./hadronic_afterburner_tools.e analyze_flow=0 analyze_HBT=1 particle_monval=211 distinguish_isospin=1 event_buffer_size=500000 >> run.log\n"
         )
         script.write("    fi\n")
-        script.write("    mv results/HBT* ../UrQMD_results/ \n")
+        script.write("    mv results/HBT* ../{results_dir}/ \n".format(results_dir=results_dir))
     script.write("""
     rm -fr hydro_event
 )
@@ -834,12 +849,15 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
             HBT_flag = True
 
     if para_dict.control_dict['compute_polarization']:
-        generate_script_spinPol(event_folder, n_threads, logfile)
+        generate_script_spinPol(event_folder, n_threads, logfile,
+                                afterburner_type)
 
     generate_script_afterburner(event_folder, HBT_flag, afterburner_type,
                                 logfile)
 
     generate_script_analyze_spvn(event_folder, HBT_flag, logfile)
+
+    sub_ev_prefix = "SMASHev" if afterburner_type == "SMASH" else "UrQMDev"
 
     nUrQMDFolders = n_urqmd_per_hydro
     if para_dict.control_dict['compute_polarization']:
@@ -847,7 +865,7 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
     for iev in range(nUrQMDFolders):
         sub_event_folder = path.join(working_folder,
                                      'event_{}'.format(event_id),
-                                     'UrQMDev_{}'.format(iev))
+                                     '{0}_{1}'.format(sub_ev_prefix, iev))
         mkdir(sub_event_folder)
         mkdir(path.join(sub_event_folder, 'iSS'))
         iSSParamFile = 'iSS/iSS_parameters.dat'

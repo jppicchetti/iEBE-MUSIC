@@ -41,19 +41,6 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip && \
 
 ENV HOME /opt/
 
-# Build and install Pythia8 from source (required by SMASH)
-# Using the same version as the local environment: pythia8315
-RUN cd /tmp && \
-    wget --no-check-certificate \
-        https://pythia.org/download/pythia83/pythia8315.tgz && \
-    tar xzf pythia8315.tgz && \
-    cd pythia8315 && \
-    ./configure --prefix=${HOME}/pythia8315 && \
-    make -j2 && \
-    make install && \
-    cd /tmp && \
-    rm -rf pythia8315 pythia8315.tgz
-
 # download and compile the iEBE-MUSIC framework
 RUN cd ${HOME} && \
     git clone https://github.com/genilssom/iEBE-MUSIC -b NewChain && \

@@ -58,8 +58,29 @@ rm -fr urqmd_code/.git
 
 # download SMASH afterburner
 rm -rf smash_code
-git clone --depth=1 https://github.com/smash-transport/smash.git -b SMASH-3.2.2  smash_code 
+git clone --depth=1 https://github.com/smash-transport/smash.git -b SMASH-3.2.2  smash_code
 rm -rf smash_code/.git
+
+# download and build Pythia8 (required to compile SMASH)
+PYTHIA_VERSION="pythia8315"
+PYTHIA_INSTALL_DIR="${HOME}/${PYTHIA_VERSION}"
+if [ ! -f "${PYTHIA_INSTALL_DIR}/bin/pythia8-config" ]; then
+    echo "Building Pythia8 in ${PYTHIA_INSTALL_DIR} ..."
+    (
+        cd /tmp
+        wget --no-check-certificate \
+            https://pythia.org/download/pythia83/${PYTHIA_VERSION}.tgz
+        tar xzf ${PYTHIA_VERSION}.tgz
+        cd ${PYTHIA_VERSION}
+        ./configure --prefix=${PYTHIA_INSTALL_DIR}
+        make -j2
+        make install
+        cd /tmp
+        rm -rf ${PYTHIA_VERSION} ${PYTHIA_VERSION}.tgz
+    )
+else
+    echo "Pythia8 already installed at ${PYTHIA_INSTALL_DIR}, skipping."
+fi
 
 
 

@@ -407,8 +407,9 @@ def run_photon(final_results_folder, event_id):
 
 
 def prepare_surface_files_for_urqmd(final_results_folder, hydro_folder_name,
-                                    n_urqmd):
-    """This function prepares hydro surface for hadronic casade"""
+                                    n_urqmd, afterburner_type):
+    """This function prepares hydro surface for hadronic cascade"""
+    sub_ev_prefix = "SMASHev" if afterburner_type == "SMASH" else "UrQMDev"
     surface_file = glob(
         path.join(final_results_folder, hydro_folder_name, "surface*.dat"))
     spectatorFileList = glob(path.join(final_results_folder, "spectator*.dat"))
@@ -418,7 +419,7 @@ def prepare_surface_files_for_urqmd(final_results_folder, hydro_folder_name,
     if stat(surface_file[0]).st_size == 0:
         return False
     for iev in range(n_urqmd):
-        hydro_surface_folder = "UrQMDev_{0:d}/hydro_event".format(iev)
+        hydro_surface_folder = "{0}_{1:d}/hydro_event".format(sub_ev_prefix, iev)
         if path.exists(hydro_surface_folder):
             shutil.rmtree(hydro_surface_folder)
         mkdir(hydro_surface_folder)
@@ -441,15 +442,17 @@ def run_urqmd_event(event_id):
 
 
 def run_urqmd_shell(n_urqmd, final_results_folder, event_id, para_dict,
-                    startTime, checkPointFileName):
-    """This function runs urqmd events in parallel"""
+                    startTime, checkPointFileName, afterburner_type):
+    """This function runs hadronic afterburner events in parallel"""
     logo = "\U0001F5FF"
+    sub_ev_prefix = "SMASHev" if afterburner_type == "SMASH" else "UrQMDev"
+    results_dir = "SMASH_results" if afterburner_type == "SMASH" else "UrQMD_results"
     urqmdResults = "particle_list_{}.bin".format(event_id)
     results_folder = path.join(final_results_folder, urqmdResults)
     urqmd_success = False
 
     if path.exists(results_folder):
-        print("{} UrQMD results {} exist ... ".format(logo, urqmdResults),
+        print("{} afterburner results {} exist ... ".format(logo, urqmdResults),
               flush=True)
         urqmd_success = True
 
@@ -466,24 +469,27 @@ def run_urqmd_shell(n_urqmd, final_results_folder, event_id, para_dict,
                     logo, curr_time),
                       flush=True)
                 call("bash ./run_spinPol.sh {}".format(n_urqmd), shell=True)
-                shutil.move("UrQMDev_{}/iSS/results".format(n_urqmd),
+                shutil.move("{0}_{1}/iSS/results".format(sub_ev_prefix, n_urqmd),
                             spin_folder)
                 if para_dict["check_point_flag"]:
                     checkPoint(startTime, checkPointFileName,
                                final_results_folder)
 
-        print("{}  [{}] Running UrQMD ... ".format(logo, curr_time), flush=True)
+        print("{}  [{}] Running afterburner ... ".format(logo, curr_time),
+              flush=True)
         with Pool(processes=n_urqmd) as pool1:
             pool1.map(run_urqmd_event, range(n_urqmd))
 
         urqmdResFile = "particle_list.bin"
         for iev in range(1, n_urqmd):
-            call("cat UrQMDev_{}/UrQMD_results/{} ".format(iev, urqmdResFile)
-                 + ">> UrQMDev_0/UrQMD_results/{}".format(urqmdResFile),
+            call("cat {0}_{1}/{2}/{3} >> {0}_0/{2}/{3}".format(
+                     sub_ev_prefix, iev, results_dir, urqmdResFile),
                  shell=True)
-            remove("UrQMDev_{}/UrQMD_results/{}".format(iev, urqmdResFile))
+            remove("{0}_{1}/{2}/{3}".format(sub_ev_prefix, iev, results_dir,
+                                            urqmdResFile))
         urqmd_success = True
-        shutil.move("UrQMDev_0/UrQMD_results/{}".format(urqmdResFile),
+        shutil.move("{0}_0/{1}/{2}".format(sub_ev_prefix, results_dir,
+                                           urqmdResFile),
                     results_folder)
 
     return (urqmd_success, results_folder)
@@ -899,15 +905,16 @@ def main(para_dict_):
             nUrQMDFolder += 1
         # if hydro finishes properly, we continue to do hadronic transport
         status_success = prepare_surface_files_for_urqmd(
-            final_results_folder, hydro_folder_name, nUrQMDFolder)
+            final_results_folder, hydro_folder_name, nUrQMDFolder,
+            para_dict_['afterburner_type'])
         if not status_success:
             exitErrorTrigger = True
             continue
 
-        # then run UrQMD events in parallel
+        # then run afterburner events in parallel
         urqmd_success, urqmd_file_path = run_urqmd_shell(
             n_urqmd, final_results_folder, event_id, para_dict_, startTime,
-            CHECKPOINT_FILENAME)
+            CHECKPOINT_FILENAME, para_dict_['afterburner_type'])
         if not urqmd_success:
             print("\U000026D4  {} did not finsh properly, skipped.".format(
                 urqmd_file_path),
