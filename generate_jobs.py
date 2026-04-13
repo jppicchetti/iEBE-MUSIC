@@ -783,11 +783,6 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
               shutil.copyfile(path.join(param_folder, 'TRENTo/input'),
                               path.join(event_folder, 'TRENTo/input'))
 
-              # Define an absolute path for Isobar to choose the correct seed
-              
-              if not isobar_seed_file:
-                  raise ValueError("For TRENTo + Isobar, you must provide --isobar_seed_file")
-              
               seed_file_abs = path.abspath(isobar_seed_file)
 
               subprocess.call("ln -s {0:s} {1:s}".format(
@@ -1118,7 +1113,10 @@ def main():
                         metavar='',
                         type=str,
                         default='',
-                        help='the seed file for isobar sampling')
+                        help=('Optional: path to a pre-generated isobar seed file. '
+                              'When TRENTo is selected and this is not provided, '
+                              'seeds are auto-generated from the parameters file. '
+                              'Ignored for all other initial condition types.'))
     #########################################################################
     parser.add_argument('--nocopy', action='store_true')
     parser.add_argument("--continueFlag", action="store_true")

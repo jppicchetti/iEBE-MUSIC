@@ -44,6 +44,18 @@ fi
 
 
 
+# validate Isobar-Sampler (Python package, no compilation needed)
+echo -e "${Green}validate Isobar-Sampler ... ${NC}"
+for script in isobar_sampler_code/exec/build_isobars.py isobar_sampler_code/exec/make_seeds.py; do
+    if [ ! -f "$script" ]; then
+        echo "Error: $script not found. Run get_code_packages.sh first."
+        exit 1
+    fi
+done
+echo -e "${Green}Isobar-Sampler OK${NC}"
+
+
+
 # compile 3dMCGlauber
 #echo -e "${Green}compile 3dMCGlauber ... ${NC}"
 #(

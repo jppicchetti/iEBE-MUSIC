@@ -12,7 +12,8 @@ def print_usage():
     """This function prints out help messages"""
     print("Usage: {} ".format(sys.argv[0].split("/")[-1])
           + "Njobs Nevents_per_job N_threads SingularityImage ParameterFile "
-          + "SeedFile jobId [bayesFile]")
+          + "jobId [SeedFile] [bayesFile]")
+    print("  SeedFile is optional. Required only when initial_state_type is TRENTo.")
 
 
 def write_submission_script(para_dict_):
@@ -20,18 +21,22 @@ def write_submission_script(para_dict_):
     random_seed = random.SystemRandom().randint(0, 10000000)
     imagePathHeader = "osdf://"
     script = open(FILENAME, "w")
+
+    seed_arg = para_dict_["seedFile"]  # empty string when not provided
+
     if para_dict_["bayesFlag"]:
         script.write("""universe = vanilla
 executable = run_singularity.sh
 arguments = {0} {1} $(Process) {2} {3} {4} {5}
-""".format(para_dict_["paraFile"], para_dict_["seedFile"], para_dict_["n_events_per_job"],
+""".format(para_dict_["paraFile"], seed_arg, para_dict_["n_events_per_job"],
            para_dict_["n_threads"], random_seed, para_dict_["bayesFile"]))
     else:
         script.write("""universe = vanilla
 executable = run_singularity.sh
 arguments = {0} {1} $(Process) {2} {3} {4}
-""".format(para_dict_["paraFile"], para_dict_["seedFile"], para_dict_["n_events_per_job"],
+""".format(para_dict_["paraFile"], seed_arg, para_dict_["n_events_per_job"],
            para_dict_["n_threads"], random_seed))
+
     script.write("""
 JobBatchName = {0}
 
@@ -42,14 +47,14 @@ WhenToTransferOutput = ON_EXIT
 Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTransferPluginMethods)
 """.format(jobName, imagePathHeader + para_dict_["image_with_path"]))
 
+    # Only include seed file in transfer list if one was provided
+    input_files = [para_dict_['paraFile']]
+    if seed_arg:
+        input_files.append(seed_arg)
     if para_dict_['bayesFlag']:
-        script.write("""
-transfer_input_files = {0}, {1}, {2}
-""".format(para_dict_['paraFile'], para_dict_['seedFile'], para_dict_['bayesFile']))
-    else:
-        script.write("""
-transfer_input_files = {0}, {1}
-""".format(para_dict_['paraFile'], para_dict_['seedFile']))
+        input_files.append(para_dict_['bayesFile'])
+
+    script.write("\ntransfer_input_files = {}\n".format(", ".join(input_files)))
 
     #script.write(
      #       "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
@@ -142,15 +147,21 @@ echo "SINGULARITYENV_HOME=${SINGULARITYENV_HOME}"
 echo "SINGULARITYENV_XDG_DATA_HOME=${SINGULARITYENV_XDG_DATA_HOME}"
 echo "SINGULARITYENV_TRENTO_CACHE=${SINGULARITYENV_TRENTO_CACHE}"
 echo "==========================="
+
+# Only pass --isobar_seed_file if a seed file was provided
+SEED_ARG=""
+if [ -n "${seedfile}" ]; then
+    SEED_ARG="--isobar_seed_file ${seedfile}"
+fi
 """)
     if para_dict_["bayesFlag"]:
-        script.write("""bayesFile=$6
+        script.write("""bayesFile=$7
 
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} --isobar_seed_file ${seedfile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
 """)
     else:
         script.write("""
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} --isobar_seed_file ${seedfile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
 """)
 
     script.write("""
@@ -182,8 +193,8 @@ if __name__ == "__main__":
         SINGULARITY_IMAGE_PATH = sys.argv[4]
         SINGULARITY_IMAGE = SINGULARITY_IMAGE_PATH.split("/")[-1]
         PARAMFILE = sys.argv[5]
-        SEEDFILE = sys.argv[6]
-        JOBID = sys.argv[7]
+        JOBID = sys.argv[6]
+        SEEDFILE = sys.argv[7] if len(sys.argv) > 7 else ""
         if len(sys.argv) == 9:
             bayesFile = sys.argv[8]
             bayesFlag = True
@@ -205,4 +216,3 @@ if __name__ == "__main__":
     }
 
     main(para_dict)
-

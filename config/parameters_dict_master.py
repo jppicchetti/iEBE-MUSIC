@@ -50,7 +50,7 @@ isobars_conf_dict_target = {
         },
         "seeds_file": {
             "description": "Input file with list of seeds for nucleon positions.",
-            "filename": "nucleon-seeds_AuAu.hdf",
+            "filename": "nucleon-seeds.hdf",
         },
         "output_path": {
             "description": "Output directory where to save",
@@ -96,7 +96,7 @@ isobars_conf_dict_projectile = {
         },
         "seeds_file": {
             "description": "Input file with list of seeds for nucleon positions.",
-            "filename": "nucleon-seeds_AuAu.hdf",
+            "filename": "nucleon-seeds.hdf",
         },
         "output_path": {
             "description": "Output directory where to save",
