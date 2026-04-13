@@ -682,7 +682,7 @@ def generate_isobar_seeds(code_path, working_folder, parameter_dict):
         yaml.dump(seeds_data, f, sort_keys=False)
 
     gen_script = path.abspath(
-        path.join(code_path, 'isobar_sampler_code/exec/generate_seeds.py'))
+        path.join(code_path, 'isobar_sampler_code/exec/make_seeds.py'))
     status = subprocess.call(
         'python3 {} {}'.format(gen_script, seeds_conf_path),
         shell=True, cwd=working_folder)
