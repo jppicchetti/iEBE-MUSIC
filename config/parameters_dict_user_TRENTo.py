@@ -106,7 +106,13 @@ isobars_conf_dict_projectile = {
 }
 
 
-# TRENTo 
+# Seeds generation configuration for Isobar-Sampler
+seeds_conf_dict = {
+    'number_configs': 10000,           # total nucleon-position seeds to generate
+    'number_of_parallel_processes': 1, # -1: auto-detect available CPUs
+}
+
+# TRENTo
 trento_dict = {
     'type': "self", # self: generate initial condition on the fly #'database_name?'
     'projectile': ['nuclei_target/Au.hdf', 'nuclei_projectile/Au.hdf'], # projectile nucleus name

@@ -129,7 +129,13 @@ isobars_conf_dict_projectile = {
 }
 
 
-# TRENTo 
+# Seeds generation configuration for Isobar-Sampler (used when initial_state_type == "TRENTo")
+seeds_conf_dict = {
+    'number_configs': 10000,           # total number of nucleon-position seeds to generate
+    'number_of_parallel_processes': 1, # -1: auto-detect available CPUs
+}
+
+# TRENTo
 trento_dict = {
     'type': "self", # self: generate initial condition on the fly #'database_name?'
     'projectile': ['nuclei.hdf/WS1.hdf', 'nuclei.hdf/WS2.hdf'], # projectile nucleus name
@@ -935,6 +941,8 @@ def update_parameters_dict(par_dict_path, ran_seed):
         isobars_conf_dict_target.update(parameters_dict.isobars_conf_dict_target)
         isobars_conf_dict_projectile.update(parameters_dict.isobars_conf_dict_projectile)
         trento_dict.update(parameters_dict.trento_dict)
+        if hasattr(parameters_dict, 'seeds_conf_dict'):
+            seeds_conf_dict.update(parameters_dict.seeds_conf_dict)
         if 'Initial_Distribution_input_filename' not in parameters_dict.music_dict:
             parameters_dict.music_dict[
                 'Initial_Distribution_input_filename'] = (

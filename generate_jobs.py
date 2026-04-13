@@ -631,6 +631,73 @@ def generate_script_analyze_spvn(folder_name, HBT_flag, logfile):
     script.close()
 
 
+def generate_isobar_seeds(code_path, working_folder, parameter_dict):
+    """Generate isobar nucleon seeds HDF file from the parameters dict.
+
+    Reads nuclear properties and seed filename from isobars_conf_dict_target
+    and generation settings from seeds_conf_dict (if present). Calls the
+    Isobar-Sampler generate_seeds.py script and returns the path to the
+    resulting HDF file.
+    """
+    isobar_samples = parameter_dict.isobars_conf_dict_target['isobar_samples']
+    n_nucleons = isobar_samples['number_nucleons']['value']
+    seed_filename = isobar_samples['seeds_file']['filename']
+    seed_file_path = path.join(working_folder, seed_filename)
+
+    if path.exists(seed_file_path):
+        print("Isobar seed file already exists at {}, skipping generation.".format(
+            seed_file_path))
+        return seed_file_path
+
+    print("Generating isobar seeds -> {} ...".format(seed_file_path))
+
+    if hasattr(parameter_dict, 'seeds_conf_dict'):
+        seeds_conf = parameter_dict.seeds_conf_dict
+    else:
+        seeds_conf = {'number_configs': 10000, 'number_of_parallel_processes': 1}
+
+    seeds_conf_path = path.join(working_folder, 'seeds-conf.yaml')
+    seeds_data = {
+        'isobar_seeds': {
+            'description': 'Configurations for making list of seeds for nucleon positions.',
+            'number_nucleons': {
+                'description': 'Mass number A of the nuclei.',
+                'value': n_nucleons,
+            },
+            'number_configs': {
+                'description': 'How many sets of nucleon positions to sample?',
+                'value': seeds_conf['number_configs'],
+            },
+            'output_file': {
+                'description': 'Path where to save list of seeds for nucleon positions.',
+                'filename': seed_filename,
+            },
+            'number_of_parallel_processes': {
+                'description': 'Number of processes to compute in parallel. -1 = auto.',
+                'value': seeds_conf['number_of_parallel_processes'],
+            },
+        }
+    }
+    with open(seeds_conf_path, 'w') as f:
+        yaml.dump(seeds_data, f, sort_keys=False)
+
+    gen_script = path.abspath(
+        path.join(code_path, 'isobar_sampler_code/exec/generate_seeds.py'))
+    status = subprocess.call(
+        'python3 {} {}'.format(gen_script, seeds_conf_path),
+        shell=True, cwd=working_folder)
+
+    if status != 0:
+        print("\U0001F6AB  Seed generation failed (exit code {})".format(status))
+        exit(status)
+    if not path.exists(seed_file_path):
+        print("\U0001F6AB  Seed file not found after generation: {}".format(
+            seed_file_path))
+        exit(1)
+
+    return seed_file_path
+
+
 def generate_event_folders(initial_condition_database, initial_condition_type,
                            package_root_path, code_path, working_folder,
                            cluster_name, event_id, event_id_offset,
@@ -1239,6 +1306,10 @@ def main():
     debugFlag = False
     if 'debugFlag' in parameter_dict.control_dict.keys():
         debugFlag = parameter_dict.control_dict['debugFlag']
+
+    if initial_condition_type == "TRENTo" and not isobar_seed_file:
+        isobar_seed_file = generate_isobar_seeds(
+            code_path, working_folder_name, parameter_dict)
 
     cent_label = "XXX"
     cent_label_pre = cent_label
