@@ -13,7 +13,7 @@ def print_usage():
     print("Usage: {} ".format(sys.argv[0].split("/")[-1])
           + "Njobs Nevents_per_job N_threads SingularityImage ParameterFile "
           + "jobId [SeedFile] [bayesFile]")
-    print("  SeedFile is optional. Required only when initial_state_type is TRENTo.")
+    print("  SeedFile is optional. When omitted, seeds are auto-generated on the worker node.")
 
 
 def write_submission_script(para_dict_):
@@ -22,7 +22,7 @@ def write_submission_script(para_dict_):
     imagePathHeader = "osdf://"
     script = open(FILENAME, "w")
 
-    seed_arg = para_dict_["seedFile"]  # empty string when not provided
+    seed_arg = para_dict_["seedFile"] if para_dict_["seedFile"] else "none"
 
     if para_dict_["bayesFlag"]:
         script.write("""universe = vanilla
@@ -49,8 +49,8 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
 
     # Only include seed file in transfer list if one was provided
     input_files = [para_dict_['paraFile']]
-    if seed_arg:
-        input_files.append(seed_arg)
+    if para_dict_['seedFile']:
+        input_files.append(para_dict_['seedFile'])
     if para_dict_['bayesFlag']:
         input_files.append(para_dict_['bayesFile'])
 
@@ -150,7 +150,7 @@ echo "==========================="
 
 # Only pass --isobar_seed_file if a seed file was provided
 SEED_ARG=""
-if [ -n "${seedfile}" ]; then
+if [ -n "${seedfile}" ] && [ "${seedfile}" != "none" ]; then
     SEED_ARG="--isobar_seed_file ${seedfile}"
 fi
 """)
