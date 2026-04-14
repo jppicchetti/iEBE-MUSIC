@@ -15,22 +15,22 @@ git clone https://github.com/jppicchetti/trento_sync.git trento_code
 #rm -fr trento_code/.gits
 
 # download 3DMCGlauber
-#rm -fr 3dMCGlauber_code
-#git clone --depth=5 https://github.com/chunshen1987/3dMCGlauber 3dMCGlauber_code
+rm -fr 3dMCGlauber_code
+git clone --depth=5 https://github.com/chunshen1987/3dMCGlauber 3dMCGlauber_code
 #(cd 3dMCGlauber_code; git checkout 22955a36969429e99a85957eb6b3c231870a2015)
-#rm -fr 3dMCGlauber_code/.git
+rm -fr 3dMCGlauber_code/.git
 
 # download IPGlasma
-#rm -fr ipglasma_code
-#git clone --depth=1 https://github.com/chunshen1987/ipglasma -b ipglasma_jimwlk ipglasma_code
+rm -fr ipglasma_code
+git clone --depth=1 https://github.com/chunshen1987/ipglasma -b ipglasma_jimwlk ipglasma_code
 #(cd ipglasma_code; git checkout 4d4392724d05502c94bb8c512e382b6d9be9dec8)
-#rm -fr ipglasma_code/.git
+rm -fr ipglasma_code/.git
 
 # download KoMPoST
-#rm -fr kompost_code
-#git clone --depth=1 https://github.com/chunshen1987/KoMPoST kompost_code
+rm -fr kompost_code
+git clone --depth=1 https://github.com/chunshen1987/KoMPoST kompost_code
 #(cd kompost_code; git checkout ad5fe9d3b26434bb1d5c29820499ef26808b5a47)
-#rm -fr kompost_code/.git
+rm -fr kompost_code/.git
 
 # download MUSIC
 rm -fr MUSIC_code
@@ -45,10 +45,10 @@ git clone https://github.com/chunshen1987/iSS -b XSCAPE iSS_code
 rm -fr iSS_code/.git
 
 # download photonEmission wrapper
-#rm -fr photonEmission_hydroInterface_code
-#git clone --depth=1 https://github.com/chunshen1987/photonEmission_hydroInterface photonEmission_hydroInterface_code
+rm -fr photonEmission_hydroInterface_code
+git clone --depth=1 https://github.com/chunshen1987/photonEmission_hydroInterface photonEmission_hydroInterface_code
 #(cd photonEmission_hydroInterface_code; git checkout b80fb78c154cc9131162c8205615faffc86d6a49)
-#rm -fr photonEmission_hydroInterface_code/.git
+rm -fr photonEmission_hydroInterface_code/.git
 
 # download UrQMD afterburner
 rm -fr urqmd_code
@@ -97,8 +97,8 @@ rm -fr hadronic_afterburner_toolkit_code/.git
 )
 
 # download nucleus configurations for 3D-Glauber
-#(cd 3dMCGlauber_code/tables; bash download_nucleusTables.sh;)
+(cd 3dMCGlauber_code/tables; bash download_nucleusTables.sh;)
 # download nucleus configurations for IP-Glasma
-#(cd ipglasma_code/nucleusConfigurations; bash download_nucleusTables.sh;)
+(cd ipglasma_code/nucleusConfigurations; bash download_nucleusTables.sh;)
 # download essential EOS files for hydro simulations
-#(cd MUSIC_code/EOS; bash download_hotQCD.sh; bash download_Neos2D.sh bqs;)
+(cd MUSIC_code/EOS; bash download_hotQCD.sh; bash download_Neos2D.sh bqs;)
