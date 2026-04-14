@@ -148,4 +148,4 @@ clone_repo_at_commit \
 (cd ipglasma_code/nucleusConfigurations; bash download_nucleusTables.sh;)
 # download essential EOS files for hydro simulations
 # SMASH_binary argument provides binary EOS tables required when SMASH is the afterburner
-(cd MUSIC_code/EOS; bash download_hotQCD.sh SMASH_binary; bash download_Neos2D.sh bqs;)
+(cd MUSIC_code/EOS; bash download_hotQCD.sh SMASH_binary; bash download_hotQCD.sh; bash download_Neos2D.sh bqs;)
