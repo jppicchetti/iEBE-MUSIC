@@ -639,9 +639,8 @@ def generate_isobar_seeds(code_path, working_folder, parameter_dict):
     Isobar-Sampler generate_seeds.py script and returns the path to the
     resulting HDF file.
     """
-    isobar_samples = parameter_dict.isobars_conf_dict_target['isobar_samples']
-    n_nucleons = isobar_samples['number_nucleons']['value']
-    seed_filename = isobar_samples['seeds_file']['filename']
+    seed_filename = (parameter_dict.isobars_conf_dict_target
+                     ['isobar_samples']['seeds_file']['filename'])
     seed_file_path = path.join(working_folder, seed_filename)
 
     if path.exists(seed_file_path):
@@ -654,7 +653,13 @@ def generate_isobar_seeds(code_path, working_folder, parameter_dict):
     if hasattr(parameter_dict, 'seeds_conf_dict'):
         seeds_conf = parameter_dict.seeds_conf_dict
     else:
-        seeds_conf = {'number_configs': 10000, 'number_of_parallel_processes': 1}
+        seeds_conf = {'number_nucleons': 300, 'number_configs': 10000,
+                      'number_of_parallel_processes': 1}
+
+    n_nucleons = seeds_conf.get(
+        'number_nucleons',
+        parameter_dict.isobars_conf_dict_target['isobar_samples']['number_nucleons']['value']
+    )
 
     seeds_conf_path = path.join(working_folder, 'seeds-conf.yaml')
     seeds_data = {

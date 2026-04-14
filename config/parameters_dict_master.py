@@ -131,6 +131,7 @@ isobars_conf_dict_projectile = {
 
 # Seeds generation configuration for Isobar-Sampler (used when initial_state_type == "TRENTo")
 seeds_conf_dict = {
+    'number_nucleons': 300,            # number of nucleons per seed configuration
     'number_configs': 10000,           # total number of nucleon-position seeds to generate
     'number_of_parallel_processes': 1, # -1: auto-detect available CPUs
 }
