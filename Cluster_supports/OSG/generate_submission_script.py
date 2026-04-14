@@ -149,9 +149,10 @@ echo "SINGULARITYENV_TRENTO_CACHE=${SINGULARITYENV_TRENTO_CACHE}"
 echo "==========================="
 
 # Only pass --isobar_seed_file if a seed file was provided
+# Use basename because HTCondor transfers the file to the working directory
 SEED_ARG=""
 if [ -n "${seedfile}" ] && [ "${seedfile}" != "none" ]; then
-    SEED_ARG="--isobar_seed_file ${seedfile}"
+    SEED_ARG="--isobar_seed_file $(basename ${seedfile})"
 fi
 """)
     if para_dict_["bayesFlag"]:
