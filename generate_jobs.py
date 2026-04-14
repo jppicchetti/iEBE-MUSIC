@@ -580,6 +580,7 @@ done
         script.write("""
     cp OSCAR.DAT ../SMASH/list/OSCAR.DAT0
     cd ../SMASH
+    unset PYTHIA8DATA
     ./smash -i list/config.yaml > run.log
     cd ..
     cp SMASH/data/0/particles_oscar2013_extended.bin {results_dir}/particle_list.bin
