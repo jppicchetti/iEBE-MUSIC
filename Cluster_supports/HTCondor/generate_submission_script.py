@@ -57,12 +57,15 @@ should_transfer_files = YES
 WhenToTransferOutput = ON_EXIT
 """.format(jobName))
 
+    # The .sif is included in transfer_input_files so HTCondor copies it to
+    # the worker scratch dir. In run_singularity.sh we use $(basename ...) to
+    # reference it, since HTCondor strips the directory on the worker side.
     if para_dict_['bayesFlag']:
-        script.write("\ntransfer_input_files = {}, {}\n".format(
-            para_dict_['param_file'], para_dict_['bayes_file']))
+        script.write("\ntransfer_input_files = {}, {}, {}\n".format(
+            para_dict_['param_file'], para_dict_['bayes_file'], sif))
     else:
-        script.write("\ntransfer_input_files = {}\n".format(
-            para_dict_['param_file']))
+        script.write("\ntransfer_input_files = {}, {}\n".format(
+            para_dict_['param_file'], sif))
 
     script.write(
         "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
@@ -123,16 +126,19 @@ printf "Job running as user: `/usr/bin/id`\\n"
 
     script.write("SINGULARITY_IMAGE=${{{}}}\n\n".format(sif_pos))
 
+    # HTCondor transfers the .sif as basename into the scratch dir
+    script.write('SIF="$(basename ${SINGULARITY_IMAGE})"\n\n')
+
     if para_dict_["bayesFlag"]:
         script.write(
-            "singularity exec ${SINGULARITY_IMAGE} "
+            'singularity exec "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
         script.write(
-            "singularity exec ${SINGULARITY_IMAGE} "
+            'singularity exec "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
@@ -141,7 +147,7 @@ printf "Job running as user: `/usr/bin/id`\\n"
     script.write("""
 cd playground/event_0
 mv EVENT_RESULTS_${processId}.tar.gz playground/event_0
-singularity exec ${SINGULARITY_IMAGE} bash submit_job.script
+singularity exec "${SIF}" bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
@@ -186,11 +192,14 @@ should_transfer_files = YES
 WhenToTransferOutput = ON_EXIT
 """.format(jobName))
 
+    # The .sif is included so HTCondor copies it to the worker scratch dir.
+    # In run_singularity.sh we reference it via $(basename ...).
     input_files = [para_dict_['param_file']]
     if para_dict_['bayesFlag']:
         input_files.append(para_dict_['bayes_file'])
     if seed_file:
         input_files.append(seed_file)
+    input_files.append(sif)
     script.write("\ntransfer_input_files = {}\n".format(", ".join(input_files)))
 
     script.write("""
@@ -292,18 +301,20 @@ echo "==========================="
     else:
         script.write('SEED_ARG=""\n')
 
-    script.write("SINGULARITY_IMAGE=${{{}}}\n\n".format(sif_pos))
+    script.write("SINGULARITY_IMAGE=${{{}}}\n".format(sif_pos))
+    # HTCondor transfers the .sif as basename into the scratch dir
+    script.write('SIF="$(basename ${SINGULARITY_IMAGE})"\n\n')
 
     if para_dict_["bayesFlag"]:
         script.write(
-            "singularity exec ${SINGULARITY_IMAGE} "
+            'singularity exec "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
         script.write(
-            "singularity exec ${SINGULARITY_IMAGE} "
+            'singularity exec "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
@@ -311,7 +322,7 @@ echo "==========================="
 
     script.write("""
 cd playground/event_0
-singularity exec ${SINGULARITY_IMAGE} bash submit_job.script
+singularity exec "${SIF}" bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
