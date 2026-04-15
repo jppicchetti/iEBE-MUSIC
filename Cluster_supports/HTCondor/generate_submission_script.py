@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """This script generates the job submission script for a generic HTCondor cluster
-with Singularity support (non-OSG)."""
+with Singularity support (non-OSG).
+
+Singularity is invoked explicitly via `singularity exec` inside run_singularity.sh
+rather than through HTCondor's +SingularityImage / SINGULARITY_CAN_USE_SIF mechanism,
+so no special ClassAd is required on the worker nodes."""
 
 
 import re
@@ -30,30 +34,28 @@ def detect_afterburner(param_file):
 def write_submission_script_urqmd(para_dict_):
     jobName = "iEBEMUSIC_{}".format(para_dict_["job_name"])
     random_seed = random.SystemRandom().randint(0, 10000000)
+    sif = para_dict_["singularity_image_path"]
     script = open(FILENAME, "w")
 
     if para_dict_["bayesFlag"]:
         script.write("""universe = vanilla
 executable = run_singularity.sh
-arguments = {0} $(Process) {1} {2} {3} {4}
+arguments = {0} $(Process) {1} {2} {3} {4} {5}
 """.format(para_dict_["param_file"], para_dict_["n_events_per_job"],
-           para_dict_["n_threads"], random_seed, para_dict_["bayes_file"]))
+           para_dict_["n_threads"], random_seed, para_dict_["bayes_file"], sif))
     else:
         script.write("""universe = vanilla
 executable = run_singularity.sh
-arguments = {0} $(Process) {1} {2} {3}
+arguments = {0} $(Process) {1} {2} {3} {4}
 """.format(para_dict_["param_file"], para_dict_["n_events_per_job"],
-           para_dict_["n_threads"], random_seed))
+           para_dict_["n_threads"], random_seed, sif))
 
     script.write("""
 JobBatchName = {0}
 
 should_transfer_files = YES
 WhenToTransferOutput = ON_EXIT
-
-+SingularityImage = "{1}"
-Requirements = SINGULARITY_CAN_USE_SIF
-""".format(jobName, para_dict_["singularity_image_path"]))
+""".format(jobName))
 
     if para_dict_['bayesFlag']:
         script.write("\ntransfer_input_files = {}, {}\n".format(
@@ -94,6 +96,9 @@ queue {2:d}""".format(para_dict_["n_threads"], para_dict_["memory_per_job"],
 
 
 def write_job_running_script_urqmd(para_dict_):
+    # sif is the last positional arg: $6 (no bayes) or $7 (bayes)
+    sif_pos = 7 if para_dict_["bayesFlag"] else 6
+
     script = open("run_singularity.sh", "w")
     script.write("""#!/usr/bin/env bash
 
@@ -114,19 +119,29 @@ printf "Job running as user: `/usr/bin/id`\\n"
 
 """)
     if para_dict_["bayesFlag"]:
-        script.write("""bayesFile=$6
+        script.write("bayesFile=$6\n")
 
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
-""")
+    script.write("SINGULARITY_IMAGE=${{{}}}\n\n".format(sif_pos))
+
+    if para_dict_["bayesFlag"]:
+        script.write(
+            "singularity exec ${SINGULARITY_IMAGE} "
+            "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
+            "-par ${parafile} -id ${processId} -n_th ${nthreads} "
+            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
+            "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
-        script.write("""
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
-""")
+        script.write(
+            "singularity exec ${SINGULARITY_IMAGE} "
+            "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
+            "-par ${parafile} -id ${processId} -n_th ${nthreads} "
+            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
+            "--nocopy --continueFlag\n")
 
     script.write("""
 cd playground/event_0
 mv EVENT_RESULTS_${processId}.tar.gz playground/event_0
-bash submit_job.script
+singularity exec ${SINGULARITY_IMAGE} bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
@@ -141,8 +156,11 @@ def write_submission_script_smash(para_dict_):
     jobName = "iEBEMUSIC_{}".format(para_dict_["job_name"])
     random_seed = random.SystemRandom().randint(0, 10000000)
     seed_file = para_dict_.get("seed_file", "")
+    sif = para_dict_["singularity_image_path"]
     script = open(FILENAME, "w")
 
+    # Argument order: param_file $(Process) n_events n_threads seed
+    #                 [bayes_file] [seed_file] singularity_image
     if para_dict_["bayesFlag"]:
         args_str = "{0} $(Process) {1} {2} {3} {4}".format(
             para_dict_["param_file"], para_dict_["n_events_per_job"],
@@ -153,6 +171,8 @@ def write_submission_script_smash(para_dict_):
             para_dict_["n_threads"], random_seed)
     if seed_file:
         args_str += " {}".format(seed_file)
+    # singularity image is always last
+    args_str += " {}".format(sif)
 
     script.write("""universe = vanilla
 executable = run_singularity.sh
@@ -164,10 +184,7 @@ JobBatchName = {0}
 
 should_transfer_files = YES
 WhenToTransferOutput = ON_EXIT
-
-+SingularityImage = "{1}"
-Requirements = SINGULARITY_CAN_USE_SIF
-""".format(jobName, para_dict_["singularity_image_path"]))
+""".format(jobName))
 
     input_files = [para_dict_['param_file']]
     if para_dict_['bayesFlag']:
@@ -175,9 +192,6 @@ Requirements = SINGULARITY_CAN_USE_SIF
     if seed_file:
         input_files.append(seed_file)
     script.write("\ntransfer_input_files = {}\n".format(", ".join(input_files)))
-
-    #script.write(
-    #    "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
 
     script.write("""
 transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process)
@@ -209,7 +223,10 @@ queue {2:d}""".format(para_dict_["n_threads"], para_dict_["memory_per_job"],
 
 def write_job_running_script_smash(para_dict_):
     seed_file = para_dict_.get("seed_file", "")
+    # seedfile position: $6 (no bayes) or $7 (bayes)
     seedfile_pos = 7 if para_dict_["bayesFlag"] else 6
+    # singularity image is always the last arg, after optional seed_file
+    sif_pos = seedfile_pos + (1 if seed_file else 0)
 
     script = open("run_singularity.sh", "w")
     script.write("""#!/usr/bin/env bash
@@ -275,18 +292,26 @@ echo "==========================="
     else:
         script.write('SEED_ARG=""\n')
 
+    script.write("SINGULARITY_IMAGE=${{{}}}\n\n".format(sif_pos))
+
     if para_dict_["bayesFlag"]:
-        script.write("""
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
-""")
+        script.write(
+            "singularity exec ${SINGULARITY_IMAGE} "
+            "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
+            "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
+            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
+            "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
-        script.write("""
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
-""")
+        script.write(
+            "singularity exec ${SINGULARITY_IMAGE} "
+            "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
+            "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
+            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
+            "--nocopy --continueFlag\n")
 
     script.write("""
 cd playground/event_0
-bash submit_job.script
+singularity exec ${SINGULARITY_IMAGE} bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
@@ -326,7 +351,8 @@ if __name__ == "__main__":
                         help='number of threads per job')
     parser.add_argument('-singularity', '--singularity_image_path', metavar='',
                         type=str, default="",
-                        help='path to the .sif Singularity image')
+                        help='absolute path to the .sif Singularity image '
+                             '(must be accessible on all worker nodes)')
     parser.add_argument('-param', '--param_file', metavar='', type=str,
                         default="", help='parameter file')
     parser.add_argument('-jobid', '--job_name', metavar='', type=str,
