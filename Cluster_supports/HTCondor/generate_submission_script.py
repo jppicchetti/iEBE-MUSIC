@@ -126,19 +126,21 @@ printf "Job running as user: `/usr/bin/id`\\n"
 
     script.write("SINGULARITY_IMAGE=${{{}}}\n\n".format(sif_pos))
 
-    # HTCondor transfers the .sif as basename into the scratch dir
-    script.write('SIF="$(basename ${SINGULARITY_IMAGE})"\n\n')
+    # HTCondor transfers the .sif as basename into the scratch dir.
+    # Capture scratch dir and build absolute SIF path before any cd.
+    script.write('SCRATCH_DIR="${PWD}"\n')
+    script.write('SIF="${SCRATCH_DIR}/$(basename ${SINGULARITY_IMAGE})"\n\n')
 
     if para_dict_["bayesFlag"]:
         script.write(
-            'singularity exec "${SIF}" '
+            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
         script.write(
-            'singularity exec "${SIF}" '
+            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
@@ -147,7 +149,7 @@ printf "Job running as user: `/usr/bin/id`\\n"
     script.write("""
 cd playground/event_0
 mv EVENT_RESULTS_${processId}.tar.gz playground/event_0
-singularity exec "${SIF}" bash submit_job.script
+singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
@@ -302,19 +304,21 @@ echo "==========================="
         script.write('SEED_ARG=""\n')
 
     script.write("SINGULARITY_IMAGE=${{{}}}\n".format(sif_pos))
-    # HTCondor transfers the .sif as basename into the scratch dir
-    script.write('SIF="$(basename ${SINGULARITY_IMAGE})"\n\n')
+    # HTCondor transfers the .sif as basename into the scratch dir.
+    # Capture scratch dir and build absolute SIF path before any cd.
+    script.write('SCRATCH_DIR="${PWD}"\n')
+    script.write('SIF="${SCRATCH_DIR}/$(basename ${SINGULARITY_IMAGE})"\n\n')
 
     if para_dict_["bayesFlag"]:
         script.write(
-            'singularity exec "${SIF}" '
+            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
         script.write(
-            'singularity exec "${SIF}" '
+            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
@@ -322,7 +326,7 @@ echo "==========================="
 
     script.write("""
 cd playground/event_0
-singularity exec "${SIF}" bash submit_job.script
+singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
