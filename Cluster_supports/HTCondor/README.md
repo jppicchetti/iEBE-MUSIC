@@ -39,7 +39,8 @@ different running modes. Then generate the job submission scripts,
         -n    10 \
         -nev   1 \
         -nth   1 \
-        -jobid [JobName]
+        -jobid [JobName] \
+        -seed_file /path/to/nucleon-seed
 
 You need to provide a `[JobName]` to label the job batch. The full list of
 arguments can be printed by calling the script without arguments,
