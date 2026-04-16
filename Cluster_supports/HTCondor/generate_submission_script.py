@@ -115,6 +115,24 @@ export PYTHONIOENCODING=utf-8
 export PATH="${PATH}:/usr/lib64/openmpi/bin:/usr/local/gsl/2.5/x86_64/bin"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/gsl/2.5/x86_64/lib64"
 
+jobdir=$(pwd)
+export JOBDIR="${jobdir}"
+export TMPDIR="${jobdir}/tmp"
+export XDG_DATA_HOME="${jobdir}/.local/share"
+export XDG_CACHE_HOME="${jobdir}/.cache"
+export TRENTO_CACHE="${jobdir}/.trento"
+
+export SINGULARITYENV_TMPDIR="${TMPDIR}"
+export SINGULARITYENV_XDG_DATA_HOME="${XDG_DATA_HOME}"
+export SINGULARITYENV_XDG_CACHE_HOME="${XDG_CACHE_HOME}"
+export SINGULARITYENV_TRENTO_CACHE="${TRENTO_CACHE}"
+
+mkdir -p "${TMPDIR}"
+mkdir -p "${XDG_DATA_HOME}"
+mkdir -p "${XDG_CACHE_HOME}"
+mkdir -p "${TRENTO_CACHE}"
+mkdir -p "${XDG_DATA_HOME}/trento"
+
 printf "Start time: `/bin/date`\\n"
 printf "Job is running on node: `/bin/hostname`\\n"
 printf "system kernel: `uname -r`\\n"
