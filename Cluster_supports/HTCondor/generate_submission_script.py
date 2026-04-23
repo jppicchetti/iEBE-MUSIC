@@ -222,8 +222,12 @@ WhenToTransferOutput = ON_EXIT
     input_files.append(sif)
     script.write("\ntransfer_input_files = {}\n".format(", ".join(input_files)))
 
+    # ── TEMPORARY DEBUG ──────────────────────────────────────────────────────────
+    # Also transfer the TRENTo directory to inspect initial-state outputs.
+    # Revert to the single-line version below when done:
+    #   transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process)
     script.write("""
-transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process)
+transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process), playground/event_0/TRENTo
 
 error = log/job.$(Cluster).$(Process).error
 output = log/job.$(Cluster).$(Process).output
