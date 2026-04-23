@@ -755,8 +755,13 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
               mkdir(path.join(event_folder, 'TRENTo/Isobar-Sampler_projectile'))
               
               #################################start_configuration############################################
-              target_start = 2*event_id
-              projectile_start = 2*event_id + 1
+              # In HTCondor/OSG mode n_jobs=1 so event_id is always 0; use the job
+              # process ID (event_id_offset) to index unique configs per job.
+              # Locally n_jobs>1 and job_id=0, so event_id_offset = iev*n_hydro
+              # which would skip indices when n_hydro>1 — use event_id instead.
+              seed_idx = event_id_offset if cluster_name == "osg" else event_id
+              target_start = 2*seed_idx
+              projectile_start = 2*seed_idx + 1
               
               target_yaml_src = path.join(param_folder, 'Isobar-Sampler_target/isobars-conf_target.yaml')
               projectile_yaml_src = path.join(param_folder, 'Isobar-Sampler_projectile/isobars-conf_projectile.yaml')
