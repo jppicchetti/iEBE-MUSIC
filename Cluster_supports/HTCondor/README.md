@@ -39,7 +39,8 @@ different running modes. Then generate the job submission scripts,
         -n    10 \
         -nev   1 \
         -nth   1 \
-        -jobid [JobName]
+        -jobid [JobName] \
+        -seed_file /path/to/nucleon-seed
 
 You need to provide a `[JobName]` to label the job batch. The full list of
 arguments can be printed by calling the script without arguments,
@@ -51,7 +52,7 @@ arguments can be printed by calling the script without arguments,
 
 The afterburner type (UrQMD or SMASH) is detected automatically from the
 `afterburner_type` key in the parameter file. If you have a Bayesian parameter
-file, pass it with `-bayes`. For TRENTo/SMASH runs with pre-generated isobar
+file, pass it with `-bayes`. For TRENTo runs with pre-generated isobar
 nucleon seeds, pass the HDF5 seed file with `-seed_file`.
 
 After running the script, two files are generated: `run_singularity.sh` and
