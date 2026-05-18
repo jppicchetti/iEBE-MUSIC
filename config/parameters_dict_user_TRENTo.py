@@ -108,9 +108,14 @@ isobars_conf_dict_projectile = {
 
 # Seeds generation configuration for Isobar-Sampler
 seeds_conf_dict = {
-    'number_nucleons': 300,            # number of nucleons per seed configuration
     'number_configs': 10000,           # total nucleon-position seeds to generate
     'number_of_parallel_processes': 1, # -1: auto-detect available CPUs
+}
+
+free_streaming_dict = {
+    'tau': 1.0,           # free-streaming duration (fm/c)
+    'grid_max': 10.0,     # transverse half-size (fm)
+    'grid_step': 0.2,     # transverse grid spacing (fm)
 }
 
 # TRENTo
@@ -119,8 +124,8 @@ trento_dict = {
     'projectile': ['nuclei_target/Au.hdf', 'nuclei_projectile/Au.hdf'], # projectile nucleus name
     #'projectile: "Pb", # projectile/target nucleus name
     'number-events': 1, # number of events
-    'quiet': True, ###
-    'output': 'test_path.dat',
+    'quiet': False, ###
+    'output': 'initial_condition',
     'reduced-thickness': 0, ###
     'fluctuation': 1 ,      # gamma fluctuations
     'nucleon-width': 0.5,    # nucleon width
@@ -181,6 +186,8 @@ iss_dict = {
     'number_of_particles_needed': 100000,  # number of hadrons to sample
     'local_charge_conservation': 0,  # flag to impose local charge conservation
     'global_momentum_conservation': 0,  # flag to impose GMC
+    'output_samples_into_files': 1,  # Write OSCAR.DAT for UrQMD
+    'store_samples_in_memory': 0,  # Don't use memory mode for UrQMD
 }
 
 smash_config_dict = {

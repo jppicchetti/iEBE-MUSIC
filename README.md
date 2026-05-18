@@ -27,6 +27,39 @@ Particlization & hadronic transport:
 
 type `./generate_jobs.py -h` for help information
 
+### TRENTo + free streaming
+
+The new initial-state chain can be selected with `initial_state_type = "TRENTo"` in `parameters_dict_user_TRENTo.py`.
+It uses a dedicated `free_streaming_dict` for the free-streaming stage and expects the isobar seed file to match the
+target/projectile nucleon count. Both SMASH and UrQMD are supported as hadronic afterburners via the `afterburner_type` key.
+
+For large production runs, use [generate_event_batches.py](generate_event_batches.py) to split a design point into
+multiple non-overlapping event ranges and generate one job folder per range. Then use [submit_job_batches.py](submit_job_batches.py)
+to submit all jobs at once. For example:
+
+```bash
+# Step 1: Generate 10 job folders (events 0–99, 100–199, ..., 900–999)
+python3 generate_event_batches.py \
+  --event_end_id 999 \
+  --events_per_job 100 \
+  --manifest_file design_point_0.json \
+  --generate_jobs_args '--cluster_name local --par_dict config/parameters_dict_user_TRENTo.py'
+
+# Step 2: Submit all jobs (with dry-run first to verify)
+python3 submit_job_batches.py design_point_0.json --dry-run --log-file submission.log
+
+# Step 3: Run for real
+python3 submit_job_batches.py design_point_0.json --seed 12345 --log-file submission.log
+```
+
+The manifest tracks all event ranges and the submission script can submit hundreds of jobs without manual intervention.
+
+Each TRENTo event folder now also archives the sampled isobar nuclei and a `sampling_metadata.json` file containing the
+impact parameter and Euler angles used for that event.
+
+To inspect them quickly, run [utilities/inspect_isobar_nuclei.py](utilities/inspect_isobar_nuclei.py) on a TRENTo
+results folder. It saves a `nucleus_quicklook.png` with nucleon-position projections.
+
 ## Parameters:
 Users can pass model parameters through a python script `parameters_dict_user.py`. It contains multiple dictionaries, which are related to each code module inside the iEBE-MUSIC framework. This script will update the master parameters dictionaries in `config/parameters_dict_master.py`. One can read `config/parameters_dict_master.py` for all the available parameters options for each module. If a user want to modify any parameters, he can add it in the `parameters_dict_user.py`.
 

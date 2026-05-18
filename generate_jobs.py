@@ -254,8 +254,17 @@ def generate_full_job_script(cluster_name, folder_name, database, initial_type,
     except:
         kompostFileName = "ekt"
 
+    trentoOutput = "test_path.dat"
+    if hasattr(para_dict, 'trento_dict'):
+        trentoOutput = para_dict.trento_dict.get('output', trentoOutput)
+
+    free_stream_dict = getattr(para_dict, 'free_streaming_dict', {})
+    freeStreamTau = float(free_stream_dict.get('tau', 1.0))
+    freeStreamGridMax = float(free_stream_dict.get('grid_max', 10.0))
+    freeStreamGridStep = float(free_stream_dict.get('grid_step', 0.2))
+
     script.write("""
-python3 hydro_plus_UrQMD_driver.py {0:s} {1:s} {2:d} {3:d} {4:d} {5:d} {6} {7} {8} {9} $seed_add {10} {11} {12} {13:s} {14:s}
+python3 hydro_plus_UrQMD_driver.py {0:s} {1:s} {2:d} {3:d} {4:d} {5:d} {6} {7} {8} {9} $seed_add {10} {11} {12} {13:s} {14:s} {15:s} {16:g} {17:g} {18:g}
 """.format(initial_type, database, n_hydro, ev0_id, n_urqmd, n_threads,
            para_dict.control_dict["save_ipglasma_results"],
            para_dict.control_dict["save_kompost_results"],
@@ -263,7 +272,8 @@ python3 hydro_plus_UrQMD_driver.py {0:s} {1:s} {2:d} {3:d} {4:d} {5:d} {6} {7} {
            para_dict.control_dict["save_UrQMD_files"],
            para_dict.control_dict["compute_polarization"],
            para_dict.control_dict["compute_photon_emission"], enableCheckPoint,
-           afterburner_type, kompostFileName))
+           afterburner_type, kompostFileName, trentoOutput, freeStreamTau,
+           freeStreamGridMax, freeStreamGridStep))
     script.write("""
 
 status=$?
@@ -273,8 +283,15 @@ fi""")
     script.close()
     
 ############## GENERATES SCRIPTS FOR TRENTo #######################
-def generate_script_trento(folder_name, nthreads, event_id):
-    """This function generates scripts for TRENTo simulation with Isobar-Sampler"""
+def generate_script_trento(folder_name, nthreads, trento_output, event_id):
+    """This function generates scripts for TRENTo simulation with Isobar-Sampler
+    
+    Args:
+        folder_name: event folder path
+        nthreads: number of threads
+        trento_output: output filename for initial condition
+        event_id: event index (TRENTo random seed is event_id + 1)
+    """
     
     working_folder = folder_name
     
@@ -285,13 +302,15 @@ def generate_script_trento(folder_name, nthreads, event_id):
 
 results_folder={0:s}
 evid=$1
+trento_seed={1:d}
 
  (
 cd TRENTo
 
 mkdir -p $results_folder
 rm -fr $results_folder/*
-""".format(results_folder))
+rm -fr nuclei_target nuclei_projectile
+""".format(results_folder, event_id + 1))
     
     
     if nthreads > 0:
@@ -299,8 +318,36 @@ rm -fr $results_folder/*
 export OMP_NUM_THREADS={0:d}
 """.format(nthreads))
     
-    script.write("""
+    trento_script = """
     # Run Isobar-Sampler ...
+
+target_start=$((2 * evid))
+projectile_start=$((target_start + 1))
+printf "%s %s\n" "$target_start" "$projectile_start" > "$results_folder/start_configuration.txt"
+
+TARGET_START=${target_start} PROJECTILE_START=${projectile_start} python3 - <<'PY'
+import os
+import yaml
+
+target_start = int(os.environ["TARGET_START"])
+projectile_start = int(os.environ["PROJECTILE_START"])
+
+for conf_file, start in [
+    ("Isobar-Sampler_target/isobars-conf_target.yaml", target_start),
+    ("Isobar-Sampler_projectile/isobars-conf_projectile.yaml", projectile_start),
+]:
+    with open(conf_file, "r") as f:
+        conf = yaml.safe_load(f)
+
+    conf["isobar_samples"]["number_configs"]["value"] = 1
+    conf["isobar_samples"]["start_configuration"] = {
+        "description": "Starting configuration index in the seeds file",
+        "value": int(start),
+    }
+
+    with open(conf_file, "w") as f:
+        yaml.safe_dump(conf, f, sort_keys=False)
+PY
 
 (
 cd Isobar-Sampler_target
@@ -312,11 +359,67 @@ cd Isobar-Sampler_projectile
 ./build_isobars.py isobars-conf_projectile.yaml  > run.log
 mv nuclei_projectile ..
 )
+python3 - <<'PY'
+from pathlib import Path
+
+import h5py
+import numpy as np
+
+
+def dump_coords(hdf_path, txt_path):
+    with h5py.File(hdf_path, "r") as f:
+        dataset_name = next(iter(f.keys()))
+        coords = f[dataset_name][:]
+
+    if coords.ndim == 3:
+        coords = coords[0]
+
+    header = "x y z"
+    np.savetxt(txt_path, coords, fmt="%.8e", header=header, comments="")
+
+
+target_hdf = next(Path("nuclei_target").glob("*.hdf"))
+projectile_hdf = next(Path("nuclei_projectile").glob("*.hdf"))
+
+dump_coords(target_hdf, target_hdf.with_suffix(".txt"))
+dump_coords(projectile_hdf, projectile_hdf.with_suffix(".txt"))
+PY
 # Run TRENTo...
-./trento -c input > run.log
-mv test_path.dat $results_folder/
+./trento -c input --random-seed=$trento_seed > run.log
+cp nuclei_target/*.hdf $results_folder/target_nucleus.hdf
+cp nuclei_projectile/*.hdf $results_folder/projectile_nucleus.hdf
+cp nuclei_target/*.txt $results_folder/target_nucleus.txt
+cp nuclei_projectile/*.txt $results_folder/projectile_nucleus.txt
+cp Isobar-Sampler_target/isobars-conf_target.yaml $results_folder/
+cp Isobar-Sampler_projectile/isobars-conf_projectile.yaml $results_folder/
+cp run.log $results_folder/
+RESULTS_FOLDER="$results_folder" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+results_folder = Path(os.environ["RESULTS_FOLDER"])
+run_log = Path("run.log").read_text().splitlines()
+
+summary = {
+    "impact_parameter": None,
+    "euler_angles": [],
+}
+
+for line in run_log:
+    if line.startswith("impact_parameter "):
+        summary["impact_parameter"] = float(line.split()[1])
+    elif line.startswith("euler_angles "):
+        _, a1, a2, a3 = line.split()
+        summary["euler_angles"].append([float(a1), float(a2), float(a3)])
+
+with open(results_folder / "sampling_metadata.json", "w") as f:
+    json.dump(summary, f, indent=2)
+PY
+mv __TRENTO_OUTPUT__ $results_folder/
  )
-""")
+"""
+    script.write(trento_script.replace("__TRENTO_OUTPUT__", trento_output))
     script.close()
 ###################################################################
 
@@ -630,80 +733,6 @@ def generate_script_analyze_spvn(folder_name, HBT_flag, logfile):
         )
     script.write(")\n")
     script.close()
-
-
-def generate_isobar_seeds(code_path, working_folder, parameter_dict):
-    """Generate isobar nucleon seeds HDF file from the parameters dict.
-
-    Reads nuclear properties and seed filename from isobars_conf_dict_target
-    and generation settings from seeds_conf_dict (if present). Calls the
-    Isobar-Sampler generate_seeds.py script and returns the path to the
-    resulting HDF file.
-    """
-    seed_filename = (parameter_dict.isobars_conf_dict_target
-                     ['isobar_samples']['seeds_file']['filename'])
-    seed_file_path = path.join(working_folder, seed_filename)
-
-    if path.exists(seed_file_path):
-        print("Isobar seed file already exists at {}, skipping generation.".format(
-            seed_file_path))
-        return seed_file_path
-
-    print("Generating isobar seeds -> {} ...".format(seed_file_path))
-
-    if hasattr(parameter_dict, 'seeds_conf_dict'):
-        seeds_conf = parameter_dict.seeds_conf_dict
-    else:
-        seeds_conf = {'number_nucleons': 300, 'number_configs': 10000,
-                      'number_of_parallel_processes': 1}
-
-    n_nucleons = seeds_conf.get(
-        'number_nucleons',
-        parameter_dict.isobars_conf_dict_target['isobar_samples']['number_nucleons']['value']
-    )
-
-    seeds_conf_path = path.join(working_folder, 'seeds-conf.yaml')
-    seeds_data = {
-        'isobar_seeds': {
-            'description': 'Configurations for making list of seeds for nucleon positions.',
-            'number_nucleons': {
-                'description': 'Mass number A of the nuclei.',
-                'value': n_nucleons,
-            },
-            'number_configs': {
-                'description': 'How many sets of nucleon positions to sample?',
-                'value': seeds_conf['number_configs'],
-            },
-            'output_file': {
-                'description': 'Path where to save list of seeds for nucleon positions.',
-                'filename': seed_filename,
-            },
-            'number_of_parallel_processes': {
-                'description': 'Number of processes to compute in parallel. -1 = auto.',
-                'value': seeds_conf['number_of_parallel_processes'],
-            },
-        }
-    }
-    with open(seeds_conf_path, 'w') as f:
-        yaml.dump(seeds_data, f, sort_keys=False)
-
-    gen_script = path.abspath(
-        path.join(code_path, 'isobar_sampler_code/exec/make_seeds.py'))
-    status = subprocess.call(
-        'python3 {} {}'.format(gen_script, seeds_conf_path),
-        shell=True, cwd=working_folder)
-
-    if status != 0:
-        print("\U0001F6AB  Seed generation failed (exit code {})".format(status))
-        exit(status)
-    if not path.exists(seed_file_path):
-        print("\U0001F6AB  Seed file not found after generation: {}".format(
-            seed_file_path))
-        exit(1)
-
-    return seed_file_path
-
-
 def generate_event_folders(initial_condition_database, initial_condition_type,
                            package_root_path, code_path, working_folder,
                            cluster_name, event_id, event_id_offset,
@@ -748,21 +777,13 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
                                 shell=True)
         ############################## GENERATE FOLDER OF ISOBAR AND TRENTo ##########################        
         elif "TRENTo" in initial_condition_type:
-              generate_script_trento(event_folder, n_threads, event_id)
+              trento_output = para_dict.trento_dict.get('output', 'test_path.dat')
+              generate_script_trento(event_folder, n_threads, trento_output, event_id)
               # Creation of Isobar and TRENTo event folders
               mkdir(path.join(event_folder, 'TRENTo'))
               mkdir(path.join(event_folder, 'TRENTo/Isobar-Sampler_target'))
               mkdir(path.join(event_folder, 'TRENTo/Isobar-Sampler_projectile'))
-              
-              #################################start_configuration############################################
-              # In HTCondor/OSG mode n_jobs=1 so event_id is always 0; use the job
-              # process ID (event_id_offset) to index unique configs per job.
-              # Locally n_jobs>1 and job_id=0, so event_id_offset = iev*n_hydro
-              # which would skip indices when n_hydro>1 — use event_id instead.
-              seed_idx = event_id_offset if cluster_name == "osg" else event_id
-              target_start = 2*seed_idx
-              projectile_start = 2*seed_idx + 1
-              
+
               target_yaml_src = path.join(param_folder, 'Isobar-Sampler_target/isobars-conf_target.yaml')
               projectile_yaml_src = path.join(param_folder, 'Isobar-Sampler_projectile/isobars-conf_projectile.yaml')
               with open(target_yaml_src, "r") as f:
@@ -770,20 +791,6 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
                   
               with open(projectile_yaml_src, "r") as f:
                   projectile_conf = yaml.safe_load(f) 
-                  
-                  
-              target_conf["isobar_samples"]["number_configs"]["value"] = 1
-              projectile_conf["isobar_samples"]["number_configs"]["value"] = 1
-              
-              target_conf["isobar_samples"]["start_configuration"] = {
-                  "description": "Starting configuration index in the seeds file",
-                  "value": int(target_start),
-              }
-              
-              projectile_conf["isobar_samples"]["start_configuration"] = {
-                    "description": "Starting configuration index in the seeds file",
-                    "value": int(projectile_start),
-              }   
               
               with open(path.join(event_folder, 'TRENTo/Isobar-Sampler_target/isobars-conf_target.yaml'), "w") as f:
                   yaml.dump(target_conf, f, sort_keys=False)
@@ -795,16 +802,23 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
                               path.join(event_folder, 'TRENTo/input'))
 
               seed_file_abs = path.abspath(isobar_seed_file)
+              seed_file_name = path.basename(seed_file_abs)
+              legacy_seed_name = "nucleon-seeds.hdf"
 
-              subprocess.call("ln -s {0:s} {1:s}".format(
+              for sampler_dir in [
+                    "TRENTo/Isobar-Sampler_projectile",
+                    "TRENTo/Isobar-Sampler_target"]:
+                subprocess.call("ln -sf {0:s} {1:s}".format(
                     seed_file_abs,
-                    path.join(event_folder, "TRENTo/Isobar-Sampler_projectile/nucleon-seeds.hdf")),
+                    path.join(event_folder, sampler_dir, seed_file_name)),
+                            shell=True)
+                if seed_file_name != legacy_seed_name:
+                    subprocess.call("ln -sf {0:s} {1:s}".format(
+                        seed_file_abs,
+                        path.join(event_folder, sampler_dir,
+                              legacy_seed_name)),
                                 shell=True)
-        
-              subprocess.call("ln -s {0:s} {1:s}".format(
-                    seed_file_abs,
-                    path.join(event_folder, "TRENTo/Isobar-Sampler_target/nucleon-seeds.hdf")),
-                                shell=True)
+
              # Sets an absolute path to the Isobar and Trento exec
               subprocess.call("ln -s {0:s} {1:s}".format(
                     path.abspath(
@@ -967,6 +981,19 @@ def generate_event_folders(initial_condition_database, initial_condition_type,
                                 path.join(sub_event_folder, iSSParamFile))
             remove("temp.dat")
 
+        if afterburner_type == "UrQMD":
+            f1 = open("temp.dat", "w")
+            with open(path.join(sub_event_folder, iSSParamFile)) as f:
+                for line in f:
+                    line2 = re.sub("output_samples_into_files = 0",
+                                   "output_samples_into_files = 1", line)
+                    line2 = re.sub("store_samples_in_memory = 1",
+                                   "store_samples_in_memory = 0", line2)
+                    f1.write(line2)
+            f1.close()
+            shutil.copyfile("temp.dat", path.join(sub_event_folder, iSSParamFile))
+            remove("temp.dat")
+
         for link_i in ['iSS_tables', 'iSS.e']:
             subprocess.call("ln -s {0:s} {1:s}".format(
                 path.abspath(path.join(code_path,
@@ -1075,7 +1102,19 @@ def main():
                         metavar='',
                         type=int,
                         default=1,
-                        help='number of jobs')
+                        help=('number of events to generate when no explicit '
+                              'event range is given'))
+    parser.add_argument('--event_start_id',
+                        metavar='',
+                        type=int,
+                        default=0,
+                        help='first global event index to generate')
+    parser.add_argument('--event_end_id',
+                        metavar='',
+                        type=int,
+                        default=-1,
+                        help=('last global event index to generate '
+                              '(inclusive; -1 keeps count-based mode)'))
     parser.add_argument('-n_hydro',
                         '--n_hydro_per_job',
                         metavar='',
@@ -1119,16 +1158,6 @@ def main():
                         type=int,
                         default='-1',
                         help='Random Seed (-1: according to system time)')
-    #########################################################################
-    parser.add_argument('--isobar_seed_file',
-                        metavar='',
-                        type=str,
-                        default='',
-                        help=('Optional: path to a pre-generated isobar seed file. '
-                              'When TRENTo is selected and this is not provided, '
-                              'seeds are auto-generated from the parameters file. '
-                              'Ignored for all other initial condition types.'))
-    #########################################################################
     parser.add_argument('--nocopy', action='store_true')
     parser.add_argument("--continueFlag", action="store_true")
     args = parser.parse_args()
@@ -1154,9 +1183,8 @@ def main():
         n_threads = args.n_threads
         job_id = args.job_process_id
         seed = args.random_seed
-        ###############################################
-        isobar_seed_file = args.isobar_seed_file
-        ###############################################
+        event_start_id = args.event_start_id
+        event_end_id = args.event_end_id
     except:
         parser.print_help()
         exit(0)
@@ -1170,9 +1198,19 @@ def main():
         print("reset n_threads to {}".format(n_urqmd_per_hydro))
         n_threads = n_urqmd_per_hydro
 
+    if event_end_id >= 0 and event_end_id < event_start_id:
+        print("\U0001F6AB  event_end_id must be >= event_start_id")
+        exit(1)
+
+    if event_end_id >= event_start_id and event_end_id >= 0:
+        n_jobs = event_end_id - event_start_id + 1
+        print("event range = {}..{} (n_jobs = {})".format(
+            event_start_id, event_end_id, n_jobs))
+
     par_diretory = path.dirname(path.abspath(args.par_dict))
     sys.path.insert(0, par_diretory)
     parameter_dict = __import__(args.par_dict.split('.py')[0].split("/")[-1])
+    isobar_seed_file = ""
 
     if cluster_name == "osg":
         if seed == -1:
@@ -1316,9 +1354,36 @@ def main():
     if 'debugFlag' in parameter_dict.control_dict.keys():
         debugFlag = parameter_dict.control_dict['debugFlag']
 
-    if initial_condition_type == "TRENTo" and not isobar_seed_file:
-        isobar_seed_file = generate_isobar_seeds(
-            code_path, working_folder_name, parameter_dict)
+    # TRENTo requires a pre-generated isobar seed file provided by the
+    # parameter dictionary.
+    if initial_condition_type == "TRENTo":
+        if not hasattr(parameter_dict, 'isobar_seed_file'):
+            print("\U0001F6AB  Missing required `isobar_seed_file` in parameter dictionary:")
+            print(path.abspath(args.par_dict))
+            exit(1)
+
+        isobar_seed_file = getattr(parameter_dict, 'isobar_seed_file')
+        if not isobar_seed_file:
+            print("\U0001F6AB  `isobar_seed_file` is empty in parameter dictionary:")
+            print(path.abspath(args.par_dict))
+            exit(1)
+
+        abs_seed = path.abspath(isobar_seed_file)
+
+        seed_basename = path.basename(abs_seed)
+        try:
+            parameter_dict.isobars_conf_dict_target['isobar_samples']['seeds_file']['filename'] = seed_basename
+            parameter_dict.isobars_conf_dict_projectile['isobar_samples']['seeds_file']['filename'] = seed_basename
+        except Exception as e:
+            print("Warning: could not set seeds filename in parameter_dict:", e)
+
+        # If the provided file does not exist, fail early.
+        if not path.exists(abs_seed):
+            print("\U0001F6AB  Specified isobar seed file not found:", abs_seed)
+            exit(1)
+
+        # make sure future code uses the absolute path
+        isobar_seed_file = abs_seed
 
     cent_label = "XXX"
     cent_label_pre = cent_label
@@ -1339,6 +1404,7 @@ def main():
     event_id_offset = job_id
     n_hydro_rescaled = n_hydro_per_job
     for iev in range(n_jobs):
+        event_id = event_start_id + iev
         progress_i = (int(float(iev + 1)/n_jobs*toolbar_width)
                       - int(float(iev)/n_jobs*toolbar_width))
         for ii in range(progress_i):
@@ -1360,7 +1426,7 @@ def main():
         generate_event_folders(initial_condition_database.format(cent_label),
                                initial_condition_type, code_package_path,
                                code_path, working_folder_name, cluster_name,
-                               iev, event_id_offset, n_hydro_rescaled,
+                               event_id, event_id_offset, n_hydro_rescaled,
                                n_urqmd_per_hydro, n_threads, parameter_dict,
                                afterburner_type, isobar_seed_file, EOSType, EOSId, EOSFileName,
                                debugFlag)

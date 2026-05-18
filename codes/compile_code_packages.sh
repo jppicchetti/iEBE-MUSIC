@@ -116,7 +116,14 @@ if [ $status -ne 0 ]; then
     exit $status
 fi
 mkdir -p MUSIC
-cp MUSIC_code/example_inputfiles/IPGlasma_2D/music_input_mode_2 MUSIC/
+if [ -f MUSIC_code/example_inputfiles/IPGlasma_2D/music_input_mode_2 ]; then
+    cp MUSIC_code/example_inputfiles/IPGlasma_2D/music_input_mode_2 MUSIC/
+elif [ -f MUSIC_code/example_inputfiles/2D_IPGlasma/IPGlasma_2D_testEvent/music_input_mode_2 ]; then
+    cp MUSIC_code/example_inputfiles/2D_IPGlasma/IPGlasma_2D_testEvent/music_input_mode_2 MUSIC/
+else
+    echo "Error: could not find MUSIC music_input_mode_2 template"
+    exit 1
+fi
 cp MUSIC_code/utilities/sweeper.sh MUSIC/
 (cd MUSIC; mkdir -p initial)
 

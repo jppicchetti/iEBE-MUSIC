@@ -54,7 +54,7 @@ isobars_conf_dict_target = {
         },
         "output_path": {
             "description": "Output directory where to save",
-            "dirname": "nuclei",
+            "dirname": "nuclei_target",
         },
         "number_of_parallel_processes": {
             "description": (
@@ -100,7 +100,7 @@ isobars_conf_dict_projectile = {
         },
         "output_path": {
             "description": "Output directory where to save",
-            "dirname": "nuclei",
+            "dirname": "nuclei_projectile",
         },
         "number_of_parallel_processes": {
             "description": (
@@ -131,7 +131,6 @@ isobars_conf_dict_projectile = {
 
 # Seeds generation configuration for Isobar-Sampler (used when initial_state_type == "TRENTo")
 seeds_conf_dict = {
-    'number_nucleons': 300,            # number of nucleons per seed configuration
     'number_configs': 10000,           # total number of nucleon-position seeds to generate
     'number_of_parallel_processes': 1, # -1: auto-detect available CPUs
 }
@@ -139,7 +138,7 @@ seeds_conf_dict = {
 # TRENTo
 trento_dict = {
     'type': "self", # self: generate initial condition on the fly #'database_name?'
-    'projectile': ['nuclei.hdf/WS1.hdf', 'nuclei.hdf/WS2.hdf'], # projectile nucleus name
+    'projectile': ['nuclei_target/Au.hdf', 'nuclei_projectile/Au.hdf'], # projectile nucleus name
     #'projectile': "Pb", # projectile/target nucleus name
     'number-events': 1, # number of events
     'quiet': True, ###
@@ -153,6 +152,12 @@ trento_dict = {
     'b-max': 14,             # maximum b
     'grid-max': 10,          #####
     'grid-step': 0.2,        #####
+}
+
+free_streaming_dict = {
+    'tau': 1.0,           # free-streaming duration (fm/c)
+    'grid_max': 10.0,     # transverse half-size (fm)
+    'grid_step': 0.2,     # transverse grid spacing (fm)
 }
 
 # IPGlasma
@@ -944,6 +949,8 @@ def update_parameters_dict(par_dict_path, ran_seed):
         trento_dict.update(parameters_dict.trento_dict)
         if hasattr(parameters_dict, 'seeds_conf_dict'):
             seeds_conf_dict.update(parameters_dict.seeds_conf_dict)
+        if hasattr(parameters_dict, 'free_streaming_dict'):
+            free_streaming_dict.update(parameters_dict.free_streaming_dict)
         if 'Initial_Distribution_input_filename' not in parameters_dict.music_dict:
             parameters_dict.music_dict[
                 'Initial_Distribution_input_filename'] = (
@@ -1001,6 +1008,11 @@ def update_parameters_dict(par_dict_path, ran_seed):
         iss_dict['use_binary_format'] = 1
         iss_dict['perform_decays'] = 1
         hadronic_afterburner_toolkit_dict['read_in_mode'] = 9
+    if afterburner_type == "UrQMD":
+        iss_dict['output_samples_into_files'] = 1
+        iss_dict['store_samples_in_memory'] = 0
+        iss_dict['use_OSCAR_format'] = 1
+        iss_dict['use_OSCAR2013'] = 1
     ##################################################################################
     if hasattr(parameters_dict, 'smash_config_dict'):
         smash_config_dict.update(parameters_dict.smash_config_dict)

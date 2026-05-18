@@ -23,8 +23,10 @@ def print_usage():
           + "initial_condition_type initial_condition_database "
           + "n_hydro_events hydro_event_id n_UrQMD n_threads "
           + "save_ipglasma_flag save_kompost_flag save_hydro_flag "
-          + "save_urqmd_flag seed_add tau0 compute_polarization_flag "
-          + "compute_photons_flag enableCheckPoint")
+          + "save_urqmd_flag seed_add compute_polarization_flag "
+          + "compute_photons_flag enableCheckPoint afterburner_type "
+          + "kompost_filename trento_output free_stream_tau "
+          + "free_stream_grid_max free_stream_grid_step")
 
 
 def fecth_an_3DMCGlauber_smooth_event(database_path, iev):
@@ -54,9 +56,25 @@ def mapEventIdToCentrality(event_id):
 ##########################################################################################
 # This function converts a matrix file to a table file for freestreaming
 
-def convert_matrix_to_table(infile, outfile, n_grid=100, lower=-10.0, upper=10.0):
+def convert_matrix_to_table(infile, outfile, n_grid=None, lower=-10.0, upper=10.0):
     data = np.loadtxt(infile, comments='#')
-    data = data.reshape(n_grid, n_grid)
+
+    if data.ndim == 1:
+        if n_grid is None:
+            n_grid_float = np.sqrt(data.size)
+            n_grid = int(round(n_grid_float))
+            if n_grid*n_grid != data.size:
+                raise ValueError(
+                    f"Cannot infer square grid size from {data.size} points")
+        data = data.reshape(n_grid, n_grid)
+    else:
+        if data.shape[0] != data.shape[1]:
+            raise ValueError(f"Input matrix is not square: {data.shape}")
+        if n_grid is None:
+            n_grid = data.shape[0]
+        elif data.shape != (n_grid, n_grid):
+            raise ValueError(
+                f"Input matrix shape {data.shape} does not match n_grid={n_grid}")
 
     step = (upper - lower) / n_grid
     x = np.linspace(lower + step/2, upper - step/2, n_grid)
@@ -77,7 +95,7 @@ def convert_matrix_to_table(infile, outfile, n_grid=100, lower=-10.0, upper=10.0
 ############################################################################################
 
 def get_initial_condition(database, initial_type, iev, event_id, seed_add,
-                          final_results_folder):
+                          final_results_folder, para_dict):
     """This funciton get initial conditions"""
     status = True
     if "IPGlasma" in initial_type:
@@ -111,10 +129,10 @@ def get_initial_condition(database, initial_type, iev, event_id, seed_add,
         return status, file_name
     ########################################################################
     elif initial_type == "TRENTo":
-        trento_local_folder = "TRENTo/trento_results"
         res_path = path.join(path.abspath(final_results_folder),
                              "trento_results_{}".format(event_id))
-        file_name = "test_path.dat/0.dat"
+        trento_output = para_dict.get('trento_output', 'test_path.dat')
+        file_name = path.join(trento_output, "0.dat")
         #check existing events ...
         if not path.exists(path.join(res_path, file_name)):
             run_trento(event_id)
@@ -128,7 +146,10 @@ def get_initial_condition(database, initial_type, iev, event_id, seed_add,
             print("TRENTo event exists ...")
             print("No need to rerun ...")
             
-        connect_trento_event(res_path, initial_type, file_name)
+        connect_trento_event(res_path, initial_type, file_name,
+                             para_dict['free_stream_tau'],
+                             para_dict['free_stream_grid_max'],
+                             para_dict['free_stream_grid_step'])
         return status, file_name
     #########################################################################
     elif initial_type == "3DMCGlauber_dynamical":
@@ -236,19 +257,29 @@ def collect_trento_event(final_results_folder):
     shutil.move("TRENTo/trento_results", final_results_folder)
     
     
-def connect_trento_event(res_path, initial_type, filename):
+def connect_trento_event(res_path, initial_type, filename,
+                         free_stream_tau, grid_max, grid_step):
     if initial_type == "TRENTo":
         file_path = path.join(res_path, filename)
         initial = np.loadtxt(file_path)
-        fs = freestream.FreeStreamer(initial, 10.0, 1.0)
+        fs = freestream.FreeStreamer(initial, grid_max, free_stream_tau)
         e = fs.energy_density()
         e_path = path.join(res_path, "e.dat")
         np.savetxt(e_path, e)
         hydro_file = "hydro.dat"
         hydro_out = path.join(res_path, hydro_file)
-        convert_matrix_to_table(e_path, hydro_out)
+
+        n_grid_float = (2.0*grid_max)/grid_step
+        n_grid = int(round(n_grid_float))
+        if abs(n_grid*grid_step - 2.0*grid_max) > 1e-8:
+            raise ValueError(
+                "Inconsistent free-streaming grid: "
+                f"2*grid_max/grid_step = {n_grid_float} is not an integer")
+
+        convert_matrix_to_table(e_path, hydro_out, n_grid=n_grid,
+                                lower=-grid_max, upper=grid_max)
         hydro_initial_file = "MUSIC/initial/e.dat"
-        if path.islink(hydro_initial_file):
+        if path.exists(hydro_initial_file) or path.islink(hydro_initial_file):
             remove(hydro_initial_file)
         call("ln -s {0:s} {1:s}".format(hydro_out,
                                         hydro_initial_file),shell=True)  
@@ -831,9 +862,10 @@ def main(para_dict_):
               flush=True)
 
         initStauts, ifile = get_initial_condition(initial_condition,
-                                                  initial_type, iev, idx0 + iev,
-                                                  para_dict_['seed_add'],
-                                                  final_results_folder)
+                              initial_type, iev, idx0 + iev,
+                              para_dict_['seed_add'],
+                              final_results_folder,
+                              para_dict_)
         if not initStauts:
             exitErrorTriggerInitial = True
             continue
@@ -972,9 +1004,29 @@ if __name__ == "__main__":
         sys.exit(0)
 
     try:
-        KOMPOST_FILENAME = str(sys.argv[17])
+        KOMPOST_FILENAME = str(sys.argv[16])
     except IndexError:
         KOMPOST_FILENAME = "ekt_tIn01_tOut08"
+
+    try:
+        TRENTO_OUTPUT = str(sys.argv[17])
+    except IndexError:
+        TRENTO_OUTPUT = "test_path.dat"
+
+    try:
+        FREE_STREAM_TAU = float(sys.argv[18])
+    except IndexError:
+        FREE_STREAM_TAU = 1.0
+
+    try:
+        FREE_STREAM_GRID_MAX = float(sys.argv[19])
+    except IndexError:
+        FREE_STREAM_GRID_MAX = 10.0
+
+    try:
+        FREE_STREAM_GRID_STEP = float(sys.argv[20])
+    except IndexError:
+        FREE_STREAM_GRID_STEP = 0.2
 
     known_initial_types = [
         "IPGlasma",
@@ -1008,6 +1060,10 @@ if __name__ == "__main__":
         'check_point_flag': CHECK_POINT,
         'afterburner_type': AFTERBURNER_TYPE,
         'kompost_filename': KOMPOST_FILENAME,
+        'trento_output': TRENTO_OUTPUT,
+        'free_stream_tau': FREE_STREAM_TAU,
+        'free_stream_grid_max': FREE_STREAM_GRID_MAX,
+        'free_stream_grid_step': FREE_STREAM_GRID_STEP,
     }
 
     main(para_dict)

@@ -317,14 +317,6 @@ echo "==========================="
     if para_dict_["bayesFlag"]:
         script.write("bayesFile=$6\n")
 
-    if seed_file:
-        script.write("seedfile=${{{}}}\n".format(seedfile_pos))
-        script.write(
-            "# Use basename: HTCondor transfers the file to the working directory\n"
-            'SEED_ARG="--isobar_seed_file $(basename ${seedfile})"\n')
-    else:
-        script.write('SEED_ARG=""\n')
-
     script.write("SINGULARITY_IMAGE=${{{}}}\n".format(sif_pos))
     # HTCondor transfers the .sif as basename into the scratch dir.
     # Capture scratch dir and build absolute SIF path before any cd.
@@ -335,14 +327,14 @@ echo "==========================="
         script.write(
             'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
-            "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
+            "-par ${parafile} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
         script.write(
             'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
-            "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
+            "-par ${parafile} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "--nocopy --continueFlag\n")
 

@@ -1,0 +1,21 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Author Joao
+
+%post
+    set -ex
+    apt-get update
+    apt-get install -y python3 python3-pip ca-certificates build-essential \
+        wget git gcc g++ make
+    pip3 install --no-cache-dir numpy h5py pyyaml
+
+%files
+    . /opt/iEBE-MUSIC
+
+%environment
+    export PATH=/opt/iEBE-MUSIC/codes:$PATH
+
+%runscript
+    exec python3 /opt/iEBE-MUSIC/generate_jobs.py "$@"
