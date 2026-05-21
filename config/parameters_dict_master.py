@@ -622,7 +622,8 @@ iss_dict = {
         0,  # output particle samples into individual files
     'store_samples_in_memory': 1,  # flag to store particle samples in memory
     'use_OSCAR_format': 1,  # output results in OSCAR format
-    'use_OSCAR2013': 1,  # output results in OSCAR2013 format
+    # output results in OSCAR2013 format; set dynamically for each afterburner
+    'use_OSCAR2013': 0,
     'use_gzip_format': 0,  # output results in gzip format (only works with
     # store_samples_in_memory = 1)
     'use_binary_format': 0,
@@ -996,6 +997,7 @@ def update_parameters_dict(par_dict_path, ran_seed):
         afterburner_type = parameters_dict.control_dict['afterburner_type']
     except KeyError:
         afterburner_type = "UrQMD"
+    afterburner_type_str = str(afterburner_type).strip().lower()
     iss_dict.update(parameters_dict.iss_dict)
     iss_dict['randomSeed'] = ran_seed
     iss_dict['number_of_particles_needed'] = (int(
@@ -1003,24 +1005,31 @@ def update_parameters_dict(par_dict_path, ran_seed):
     hadronic_afterburner_toolkit_dict.update(
         parameters_dict.hadronic_afterburner_toolkit_dict)
     hadronic_afterburner_toolkit_dict['randomSeed'] = ran_seed
-    if afterburner_type == "decay":
+    if afterburner_type_str in ("decay", "pdg_decay"):
         iss_dict['use_OSCAR_format'] = 0
         iss_dict['use_binary_format'] = 1
         iss_dict['perform_decays'] = 1
         hadronic_afterburner_toolkit_dict['read_in_mode'] = 9
-    if afterburner_type == "UrQMD":
+    elif afterburner_type_str == "urqmd":
+        iss_dict['afterburner_type'] = 1
+        iss_dict['output_samples_into_files'] = 1
+        iss_dict['store_samples_in_memory'] = 0
+        iss_dict['use_OSCAR_format'] = 1
+        # osc2u -> UrQMD expects legacy OSCAR format, not OSCAR2013
+        iss_dict['use_OSCAR2013'] = 0
+        iss_dict['use_binary_format'] = 0
+        iss_dict['perform_decays'] = 0
+    ##################################################################################
+    if hasattr(parameters_dict, 'smash_config_dict'):
+        smash_config_dict.update(parameters_dict.smash_config_dict)
+    if afterburner_type_str == "smash":
+        music_dict['EOS_to_use'] = 91
+        iss_dict['afterburner_type'] = 2
         iss_dict['output_samples_into_files'] = 1
         iss_dict['store_samples_in_memory'] = 0
         iss_dict['use_OSCAR_format'] = 1
         iss_dict['use_OSCAR2013'] = 1
-    ##################################################################################
-    if hasattr(parameters_dict, 'smash_config_dict'):
-        smash_config_dict.update(parameters_dict.smash_config_dict)
-    if afterburner_type == "SMASH":
-        music_dict['EOS_to_use'] = 91
-        iss_dict['afterburner_type'] = 2
-        iss_dict['use_OSCAR_format'] = 1
-        iss_dict['use_OSCAR2013'] = 1
+        iss_dict['use_binary_format'] = 0
         iss_dict['perform_decays'] = 0
     ###################################################################################
 
