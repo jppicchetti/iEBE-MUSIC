@@ -33,6 +33,8 @@ This will:
 ```bash
 # Run a test event
 python3 generate_jobs.py -w test_dp0 -n 1 -par config/design_points/parameters_dict_user_TRENTo_dp0.py
+cd test_dp0/event_0
+bash submit_job.script
 ```
 
 This will create a test job folder and run a single event simulation.
