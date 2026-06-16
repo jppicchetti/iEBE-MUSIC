@@ -43,7 +43,7 @@ ENV HOME /opt/
 
 # download and compile the iEBE-MUSIC framework
 RUN cd ${HOME} && \
-    git clone https://github.com/genilssom/iEBE-MUSIC -b NewChain && \
+    git clone https://github.com/jppicchetti/iEBE-MUSIC -b joao/clean-final && \
     cd iEBE-MUSIC/codes && \
     bash get_code_packages_test.sh && \
     ./compile_code_packages.sh && \

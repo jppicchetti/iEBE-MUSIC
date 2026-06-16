@@ -93,6 +93,29 @@ def calculate_vnpT(pTArr, poiSpVn, dataRef, etaRef, nOrder,
                header="pT (GeV)  dN/d2pT  dN/d2pT_err  vn(pT)  vn(pT)_err")
 
 
+def _coerce_eta_reference(ref_list):
+    """Normalize extracted eta-dependent Qn data into [nQn, nEta] arrays.
+
+    The extractor stores `chVneta_pTw_pT_0p15_2` as a python list where the
+    last entry can be a scalar normalization. This helper keeps only array-like
+    entries and appends N(eta) as the last channel used by downstream weights.
+    """
+    arrs = []
+    for item in ref_list:
+        item_arr = np.asarray(item)
+        if item_arr.ndim == 1:
+            arrs.append(item_arr.astype(np.complex128, copy=False))
+
+    if len(arrs) < 4:
+        raise ValueError("insufficient eta-dependent channels in chVneta data")
+
+    ref = np.stack(arrs, axis=0)
+    # Downstream code uses dataRef[:, -1, :] as multiplicity weights.
+    # Reuse N(eta) (channel 0) as a robust weight channel.
+    ref = np.vstack([ref, ref[0:1, :]])
+    return ref
+
+
 try:
     database_file = str(sys.argv[1])
 except IndexError:
@@ -142,7 +165,9 @@ for icen in range(len(centralityCutList) - 1):
     pTArr = []
     for event_name in selected_events_list:
         chargedpTDiff.append(data[event_name]['ch_pTArr'])
-        QnArrEtapTw.append(data[event_name]['chVneta_pTw_pT_0p15_2'])
+        QnArrEtapTw.append(
+            _coerce_eta_reference(data[event_name]['chVneta_pTw_pT_0p15_2'])
+        )
         pTArr = data[event_name]['pTArr']
     chargedpTDiff = np.array(chargedpTDiff)
     QnArrEtapTw = np.array(QnArrEtapTw)

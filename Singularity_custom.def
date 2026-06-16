@@ -1,0 +1,87 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Author Your Name
+    Version 1.0
+    Description iEBE-MUSIC with local modifications
+
+%post
+    set -ex
+    
+    # Update package manager
+    apt-get update
+    
+    # Install dependencies (Ubuntu/Debian packages)
+    apt-get install -y \
+        build-essential \
+        cmake \
+        cmake \
+        libeigen3-dev \
+        gcc \
+        g++ \
+        gfortran \
+        libgsl-dev \
+        libfftw3-dev \
+        libhdf5-dev \
+        zlib1g-dev \
+        make \
+        libopenmpi-dev \
+        python3 \
+        python3-pip \
+        time \
+        vim \
+        wget \
+        openmpi-bin \
+        libboost-all-dev \
+        rsync \
+        ca-certificates
+    
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+    
+    # Install Python packages
+    python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel
+    python3 -m pip install --no-cache-dir \
+        numpy==1.24.4 \
+        scipy==1.10.1 \
+        h5py \
+        PyYAML \
+        joblib \
+        mpmath \
+        freestream \
+        matplotlib
+
+%files
+    codes /opt/iEBE-MUSIC/codes
+    config /opt/iEBE-MUSIC/config
+    analysisKit /opt/iEBE-MUSIC/analysisKit
+    utilities /opt/iEBE-MUSIC/utilities
+    EOS_database /opt/iEBE-MUSIC/EOS_database
+    Cluster_supports /opt/iEBE-MUSIC/Cluster_supports
+    *.py /opt/iEBE-MUSIC/
+    *.sh /opt/iEBE-MUSIC/
+    README.md /opt/iEBE-MUSIC/
+    LICENSE /opt/iEBE-MUSIC/
+
+%environment
+    export PATH=/opt/iEBE-MUSIC/codes:$PATH
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+    export PYTHONIOENCODING=utf-8
+    export HOME=/opt
+    
+%runscript
+    exec python3 /opt/iEBE-MUSIC/generate_jobs.py "$@"
+
+%post
+    # Download database files
+    mkdir -p /opt/.local/share/trento
+    
+    cd /opt/iEBE-MUSIC/EOS_database && \
+        bash download_EOSdatabase1D.sh && \
+        bash download_QGPViscositydatabase1D.sh || true
+    
+    cd /opt/iEBE-MUSIC/config/BESPost && \
+        bash download_posteriorChain.sh || true
+    
+    cd /opt/iEBE-MUSIC/config/arXiv_2408.00537 && \
+        bash download_posteriorChain.sh || true

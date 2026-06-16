@@ -9,11 +9,23 @@ so no special ClassAd is required on the worker nodes."""
 
 import re
 import sys
-from os import path, makedirs
+from os import path, makedirs, getcwd
 import argparse
 import random
 
 FILENAME = "singularity.submit"
+
+
+def find_repo_root():
+    """Find the iEBE-MUSIC repository root by looking for known markers."""
+    current = path.abspath(".")
+    while current != path.dirname(current):  # Stop at filesystem root
+        if (path.exists(path.join(current, "README.md")) and
+            path.exists(path.join(current, "config")) and
+            path.exists(path.join(current, "Cluster_supports"))):
+            return current
+        current = path.dirname(current)
+    return None
 
 
 def detect_afterburner(param_file):
@@ -27,6 +39,56 @@ def detect_afterburner(param_file):
     except Exception:
         pass
     return "UrQMD"
+
+
+def detect_seed_files(param_file):
+    """Extract isobar_seed_file path from parameter file and resolve it.
+    
+    Tries to resolve relative paths in this order:
+    1. Absolute paths (return as-is if exists)
+    2. Relative to the parameter file location
+    3. Relative to the repo root (iEBE-MUSIC/)
+    4. Relative to current working directory
+    """
+    try:
+        with open(param_file, 'r') as f:
+            content = f.read()
+        # Match isobar_seed_file = "..." or isobar_seed_file: "..."
+        m = re.search(r"isobar_seed_file\s*[=:]\s*['\"]([^'\"]+)['\"]", content)
+        if m:
+            seed_path = m.group(1)
+            
+            # Handle absolute paths
+            if path.isabs(seed_path):
+                if path.exists(seed_path):
+                    return seed_path
+                return None
+            
+            # Handle relative paths - try multiple resolution strategies
+            candidates = []
+            
+            # 1. Relative to param file location
+            param_dir = path.dirname(path.abspath(param_file))
+            candidates.append(path.join(param_dir, seed_path))
+            
+            # 2. Relative to repo root
+            repo_root = find_repo_root()
+            if repo_root:
+                candidates.append(path.join(repo_root, seed_path))
+            
+            # 3. Relative to current working directory
+            candidates.append(path.join(getcwd(), seed_path))
+            
+            # 4. In current dir under shared_seeds/ (legacy fallback)
+            candidates.append(path.join(getcwd(), "shared_seeds", path.basename(seed_path)))
+            
+            # Return the first candidate that exists
+            for candidate in candidates:
+                if path.exists(candidate):
+                    return candidate
+    except Exception:
+        pass
+    return None
 
 
 # ── UrQMD mode ────────────────────────────────────────────────────────────────
@@ -57,21 +119,35 @@ should_transfer_files = YES
 WhenToTransferOutput = ON_EXIT
 """.format(jobName))
 
-    # The .sif is included in transfer_input_files so HTCondor copies it to
-    # the worker scratch dir. In run_singularity.sh we use $(basename ...) to
-    # reference it, since HTCondor strips the directory on the worker side.
+    # Build transfer_input_files list
+    transfer_list = [para_dict_['param_file']]
+    
+    # Add bayes file if present
     if para_dict_['bayesFlag']:
-        script.write("\ntransfer_input_files = {}, {}, {}\n".format(
-            para_dict_['param_file'], para_dict_['bayes_file'], sif))
-    else:
-        script.write("\ntransfer_input_files = {}, {}\n".format(
-            para_dict_['param_file'], sif))
+        transfer_list.append(para_dict_['bayes_file'])
+    
+    # Detect and add seed files from parameter file
+    seed_file_path = detect_seed_files(para_dict_['param_file'])
+    if seed_file_path and path.exists(seed_file_path):
+        transfer_list.append(seed_file_path)
+    
+    # Add singularity image
+    transfer_list.append(sif)
+    
+    script.write("\ntransfer_input_files = {}\n".format(", ".join(transfer_list)))
 
     script.write(
         "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
 
+    if para_dict_.get("output_mode", "quiet") == "verbose":
+        transfer_output = "playground/event_0/EVENT_RESULTS_$(Process)"
+    else:
+        transfer_output = (
+            "playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5"
+        )
+
     script.write("""
-transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5
+transfer_output_files = {3}
 
 error = log/job.$(Cluster).$(Process).error
 output = log/job.$(Cluster).$(Process).output
@@ -93,8 +169,11 @@ request_cpus = {0:d}
 request_memory = {1:d} GB
 request_disk = 2 GB
 
+# Avoid known problematic host where Singularity extraction fails
+Requirements = (TARGET.Machine != "gpusphydro")
+
 queue {2:d}""".format(para_dict_["n_threads"], para_dict_["memory_per_job"],
-                      para_dict_["n_jobs"]))
+                      para_dict_["n_jobs"], transfer_output))
     script.close()
 
 
@@ -121,6 +200,7 @@ export TMPDIR="${jobdir}/tmp"
 export XDG_DATA_HOME="${jobdir}/.local/share"
 export XDG_CACHE_HOME="${jobdir}/.cache"
 export TRENTO_CACHE="${jobdir}/.trento"
+export SEED_DIR="${jobdir}/shared_seeds"
 
 export SINGULARITYENV_TMPDIR="${TMPDIR}"
 export SINGULARITYENV_XDG_DATA_HOME="${XDG_DATA_HOME}"
@@ -132,6 +212,20 @@ mkdir -p "${XDG_DATA_HOME}"
 mkdir -p "${XDG_CACHE_HOME}"
 mkdir -p "${TRENTO_CACHE}"
 mkdir -p "${XDG_DATA_HOME}/trento"
+mkdir -p "${SEED_DIR}"
+
+# HTCondor transfers seed files with relative paths; copy them into shared_seeds/
+# if they're in a subdirectory (e.g., shared_seeds/nucleon-seeds_197.hdf)
+for seed_hdf in *.hdf; do
+    if [ -f "${jobdir}/${seed_hdf}" ] && [ ! -f "${SEED_DIR}/${seed_hdf}" ]; then
+        cp "${jobdir}/${seed_hdf}" "${SEED_DIR}/${seed_hdf}"
+    fi
+done
+
+# Also handle the case where seed files are already transferred into shared_seeds
+if [ -d "${jobdir}/shared_seeds" ] && [ ! -d "${SEED_DIR}" ]; then
+    cp -r "${jobdir}/shared_seeds" "${SEED_DIR}"
+fi
 
 printf "Start time: `/bin/date`\\n"
 printf "Job is running on node: `/bin/hostname`\\n"
@@ -222,12 +316,15 @@ WhenToTransferOutput = ON_EXIT
     input_files.append(sif)
     script.write("\ntransfer_input_files = {}\n".format(", ".join(input_files)))
 
-    # ── TEMPORARY DEBUG ──────────────────────────────────────────────────────────
-    # TRENTo is copied into EVENT_RESULTS in run_singularity.sh so it travels
-    # with each job's unique result directory.
-    # To revert: remove the cp step from run_singularity.sh (marked there too).
+    if para_dict_.get("output_mode", "quiet") == "verbose":
+        transfer_output = "playground/event_0/EVENT_RESULTS_$(Process)"
+    else:
+        transfer_output = (
+            "playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5"
+        )
+
     script.write("""
-transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process)
+transfer_output_files = {3}
 
 error = log/job.$(Cluster).$(Process).error
 output = log/job.$(Cluster).$(Process).output
@@ -250,7 +347,7 @@ request_memory = {1:d} GB
 request_disk = 2 GB
 
 queue {2:d}""".format(para_dict_["n_threads"], para_dict_["memory_per_job"],
-                      para_dict_["n_jobs"]))
+                      para_dict_["n_jobs"], transfer_output))
     script.close()
 
 
@@ -317,6 +414,14 @@ echo "==========================="
     if para_dict_["bayesFlag"]:
         script.write("bayesFile=$6\n")
 
+    if seed_file:
+        script.write("seedfile=${{{}}}\n".format(seedfile_pos))
+        script.write(
+            "# Use basename: HTCondor transfers the file to the working directory\n"
+            'SEED_ARG="--isobar_seed_file $(basename ${seedfile})"\n')
+    else:
+        script.write('SEED_ARG=""\n')
+
     script.write("SINGULARITY_IMAGE=${{{}}}\n".format(sif_pos))
     # HTCondor transfers the .sif as basename into the scratch dir.
     # Capture scratch dir and build absolute SIF path before any cd.
@@ -327,14 +432,14 @@ echo "==========================="
         script.write(
             'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
-            "-par ${parafile} -id ${processId} -n_th ${nthreads} "
+            "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
         script.write(
             'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
-            "-par ${parafile} -id ${processId} -n_th ${nthreads} "
+            "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "--nocopy --continueFlag\n")
 
@@ -345,11 +450,9 @@ status=$?
 if [ $status -ne 0 ]; then
     exit $status
 fi
-# ── TEMPORARY DEBUG: copy TRENTo into EVENT_RESULTS so it transfers with the job ──
-# Revert: remove the two lines below (cp and the comment).
-cp -r TRENTo EVENT_RESULTS_${processId}/
-# ── END TEMPORARY DEBUG ────────────────────────────────────────────────────────────
 """)
+    if para_dict_.get("output_mode", "quiet") == "verbose":
+        script.write('cp -r TRENTo EVENT_RESULTS_${processId}/\n')
     script.close()
 
 
@@ -394,9 +497,9 @@ if __name__ == "__main__":
                         default="", help='bayes file')
     parser.add_argument('-mem', '--memory_per_job', metavar='', type=int,
                         default=2, help='memory per job (GB)')
-    parser.add_argument('-seed_file', '--seed_file', metavar='', type=str,
-                        default="",
-                        help='isobar nucleon seed HDF5 file (TRENTo/SMASH only)')
+    parser.add_argument('-output_mode', '--output_mode', metavar='', type=str,
+                        default='quiet', choices=['quiet', 'verbose'],
+                        help='output transfer mode: quiet=spvn only, verbose=full EVENT_RESULTS')
 
     if len(sys.argv) < 2:
         parser.print_help()

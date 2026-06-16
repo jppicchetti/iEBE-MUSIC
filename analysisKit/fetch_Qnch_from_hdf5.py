@@ -102,12 +102,24 @@ def get3DGlauberData(h5Event):
     """
         this function gets the 3D Glauber data from the hdf5 event
     """
-    data = []
+    data = None
     for fileName in h5Event.keys():
         if "strings_" in fileName:
             data = h5Event.get(fileName).attrs.get("header")
             break
-    data = data.decode("utf-8").split(" ")
+    if data is None:
+        return [0.0, 0, 0, 0, 0, 0, 0]
+    # normalize header to a single string
+    if isinstance(data, (list, tuple, np.ndarray)):
+        try:
+            data_str = " ".join([d.decode("utf-8") if isinstance(d, (bytes, bytearray)) else str(d) for d in data])
+        except Exception:
+            data_str = " ".join([str(d) for d in data])
+    elif isinstance(data, (bytes, bytearray)):
+        data_str = data.decode("utf-8")
+    else:
+        data_str = str(data)
+    data = data_str.split()
     b = float(data[3])
     Npart = int(data[7])
     Ncoll = int(data[10])
@@ -193,51 +205,93 @@ def calcualte_inte_Vn_pTeta(pTMin, pTMax, etaMin, etaMax, data, Nevents):
         given pT range (pTMin, pTMax) and eta range (etaMin, etaMax)
         for every event in the data
     """
-    npT = 20
-    nEta = 71
-    pTArr = np.linspace(0.1, 3.9, npT)
-    etaArr = np.linspace(-7, 7, nEta)
+    # robust integration for possibly sparse pT-eta sampled data
+    # expected columns: [eta, pT, dN, ... Qn real/imag ...]
+    if data is None or len(data) == 0:
+        return [0.0, 0.0] + [0+0j]*NORDER + [0.0]
 
-    pTInterpArr = np.linspace(pTMin, pTMax, npT)
-    etaInterpArr = np.linspace(etaMin, etaMax, nEta)
-    dpT = (pTInterpArr[1] - pTInterpArr[0])/(pTArr[1] - pTArr[0])
-    deta = (etaInterpArr[1] - etaInterpArr[0])/(etaArr[1] - etaArr[0])
-    etaInterpMesh, pTInterpMesh = np.meshgrid(etaInterpArr,
-                                              pTInterpArr,
-                                              indexing='ij')
+    arr = np.array(data)
+    ncols = arr.shape[1]
+    # determine available max harmonic from columns
+    max_order_available = 0
+    if ncols > 4:
+        max_order_available = int((ncols - 4)//2)
+    max_order = min(NORDER, max_order_available)
 
-    pT_event = data[:, 1].reshape(nEta, npT)
-    dN_event = data[:, 2].reshape(nEta, npT)
-    dNinterp = RegularGridInterpolator((etaArr, pTArr),
-                                       dN_event,
-                                       bounds_error=False,
-                                       fill_value=0)
-    pTinterp = RegularGridInterpolator((etaArr, pTArr),
-                                       pT_event,
-                                       bounds_error=False,
-                                       fill_value=0)
+    # select rows within requested pT and eta ranges
+    mask = (arr[:, 1] >= pTMin) & (arr[:, 1] <= pTMax) & (
+        arr[:, 0] >= etaMin) & (arr[:, 0] <= etaMax)
+    sel = arr[mask]
+    if sel.size == 0:
+        return [0.0, 0.0] + [0+0j]*max_order + [0.0]
 
-    N = np.sum(dNinterp((etaInterpMesh, pTInterpMesh))) + EPS
-    meanpT = (np.sum(
-        pTinterp((etaInterpMesh, pTInterpMesh))*dNinterp(
-            (etaInterpMesh, pTInterpMesh)))/N)
-    totalN = N*Nevents*dpT*deta
-    temp_vn_array = [N*dpT*deta, meanpT]
+    # group by eta
+    etas = np.unique(sel[:, 0])
+    N_eta = []
+    meanpT_eta = []
+    Vn_eta = [ [] for _ in range(max_order) ]
+    for eta in etas:
+        rows = sel[sel[:, 0] == eta]
+        # sort by pT
+        rows = rows[np.argsort(rows[:, 1])]
+        pT_vals = rows[:, 1]
+        dN_vals = rows[:, 2]
+        # estimate dpT per pT point using neighboring differences
+        if len(pT_vals) == 1:
+            dp = np.array([1.0])
+        else:
+            dp = np.zeros_like(pT_vals)
+            dp[1:-1] = 0.5*(pT_vals[2:] - pT_vals[:-2])
+            dp[0] = pT_vals[1] - pT_vals[0]
+            dp[-1] = pT_vals[-1] - pT_vals[-2]
+
+        weight = dN_vals * pT_vals * dp
+        N_eta_j = 2.*np.pi*np.sum(weight)
+        N_eta.append(N_eta_j)
+        if np.sum(weight) > 0:
+            meanpT_eta.append(np.sum(dN_vals * pT_vals**2 * dp)/np.sum(dN_vals * pT_vals * dp))
+        else:
+            meanpT_eta.append(0.0)
+
+        for iorder in range(1, max_order + 1):
+            idx_real = 2*iorder + 2
+            idx_imag = 2*iorder + 3
+            if idx_imag < ncols:
+                Qn_real = rows[:, idx_real]
+                Qn_imag = rows[:, idx_imag]
+                # integrate Qn * dN * pT * dp
+                num_real = np.sum(Qn_real * dN_vals * pT_vals * dp)
+                num_imag = np.sum(Qn_imag * dN_vals * pT_vals * dp)
+                denom = np.sum(dN_vals * pT_vals * dp) + EPS
+                Vn_eta[iorder-1].append(num_real/denom + 1j*(num_imag/denom))
+            else:
+                Vn_eta[iorder-1].append(0.0+0.0j)
+
+    # integrate over eta (simple trapezoidal on N_eta and weighted averages for Vn)
+    etas_sorted = np.array(etas)
+    N_eta = np.array(N_eta)
+    meanpT_eta = np.array(meanpT_eta)
+    totalN = np.trapz(N_eta, etas_sorted)
+    if totalN <= 0:
+        meanpT = 0.0
+    else:
+        meanpT = np.trapz(meanpT_eta * N_eta, etas_sorted)/totalN
+
+    temp_vn_array = [totalN, meanpT]
     for iorder in range(1, NORDER + 1):
-        Qn_real_event = data[:, 2*iorder + 2].reshape(nEta, npT)
-        Qn_imag_event = data[:, 2*iorder + 3].reshape(nEta, npT)
-        QnRealInterp = RegularGridInterpolator((etaArr, pTArr),
-                                               Qn_real_event,
-                                               bounds_error=False,
-                                               fill_value=0)
-        QnImagInterp = RegularGridInterpolator((etaArr, pTArr),
-                                               Qn_imag_event,
-                                               bounds_error=False,
-                                               fill_value=0)
-        Vn_real_inte = np.sum(QnRealInterp((etaInterpMesh, pTInterpMesh)))/N
-        Vn_imag_inte = np.sum(QnImagInterp((etaInterpMesh, pTInterpMesh)))/N
-        temp_vn_array.append(Vn_real_inte + 1j*Vn_imag_inte)
-    temp_vn_array.append(totalN)
+        if iorder <= max_order:
+            Vn_list = np.array([v for v in Vn_eta[iorder-1]])
+            if Vn_list.size == 0:
+                temp_vn_array.append(0.0+0.0j)
+            else:
+                weights = N_eta + EPS
+                Vn_eta_mean = np.sum(Vn_list * weights)/np.sum(weights)
+                temp_vn_array.append(Vn_eta_mean)
+        else:
+            temp_vn_array.append(0.0+0.0j)
+
+    # append per-eta multiplicity (matching shape of N_eta) for compatibility
+    temp_vn_array.append(N_eta * Nevents)
     return temp_vn_array
 
 
@@ -247,59 +301,78 @@ def calcualte_inte_Vneta_pTeta(pTMin: float, pTMax: float, data, Nevents: int,
         this function calculates the pT-integrated vn(eta) in a
         given pT range (pTMin, pTMax) for every event in the data
     """
-    npT = 20
-    nEta = 71
-    pTArr = np.linspace(0.1, 3.9, npT)
-    etaArr = np.linspace(-7, 7, nEta)
+    # robust eta-dependent integration for possibly sparse pT sampling
+    if data is None or len(data) == 0:
+        return [np.array([]), np.array([])] + [np.array([]) for _ in range(NORDER)] + [0.0]
 
-    pTInterpArr = np.linspace(pTMin, pTMax, npT)
-    dpT = (pTInterpArr[1] - pTInterpArr[0])/(pTArr[1] - pTArr[0])
-    etaInterpMesh, pTInterpMesh = np.meshgrid(etaArr,
-                                              pTInterpArr,
-                                              indexing='ij')
+    arr = np.array(data)
+    ncols = arr.shape[1]
+    max_order_available = 0
+    if ncols > 4:
+        max_order_available = int((ncols - 4)//2)
+    max_order = min(NORDER, max_order_available)
 
-    pT_event = data[:, 1].reshape(nEta, npT)
-    dN_event = data[:, 2].reshape(nEta, npT)
-    dNinterp = RegularGridInterpolator((etaArr, pTArr),
-                                       dN_event,
-                                       bounds_error=False,
-                                       fill_value=0)
-    pTinterp = RegularGridInterpolator((etaArr, pTArr),
-                                       pT_event,
-                                       bounds_error=False,
-                                       fill_value=0)
+    # select rows within pT range
+    mask = (arr[:, 1] >= pTMin) & (arr[:, 1] <= pTMax)
+    sel = arr[mask]
+    if sel.size == 0:
+        return [np.array([]), np.array([])] + [np.array([]) for _ in range(NORDER)] + [0.0]
 
-    N = np.sum(dNinterp((etaInterpMesh, pTInterpMesh)), axis=1) + EPS
-    meanpT = (np.sum(pTinterp((etaInterpMesh, pTInterpMesh))*dNinterp(
-        (etaInterpMesh, pTInterpMesh)),
-                     axis=1)/N)
-    totalN = N*Nevents*dpT
-    temp_vn_array = [N*dpT, meanpT]  # dN/deta, <pT>(eta)
-    for iorder in range(1, NORDER + 1):
-        Qn_real_event = data[:, 2*iorder + 2].reshape(nEta, npT)
-        Qn_imag_event = data[:, 2*iorder + 3].reshape(nEta, npT)
-        QnRealInterp = RegularGridInterpolator((etaArr, pTArr),
-                                               Qn_real_event,
-                                               bounds_error=False,
-                                               fill_value=0)
-        QnImagInterp = RegularGridInterpolator((etaArr, pTArr),
-                                               Qn_imag_event,
-                                               bounds_error=False,
-                                               fill_value=0)
-        if weightType == 1:
-            Vn_real_inte = (np.sum(QnRealInterp(
-                (etaInterpMesh, pTInterpMesh))*pTInterpMesh,
-                                   axis=1)/N)
-            Vn_imag_inte = (np.sum(QnImagInterp(
-                (etaInterpMesh, pTInterpMesh))*pTInterpMesh,
-                                   axis=1)/N)
+    etas = np.unique(sel[:, 0])
+    N_eta = []
+    meanpT_eta = []
+    Vn_eta = [ [] for _ in range(max_order) ]
+    for eta in etas:
+        rows = sel[sel[:, 0] == eta]
+        rows = rows[np.argsort(rows[:, 1])]
+        pT_vals = rows[:, 1]
+        dN_vals = rows[:, 2]
+        if len(pT_vals) == 1:
+            dp = np.array([1.0])
         else:
-            Vn_real_inte = (
-                np.sum(QnRealInterp((etaInterpMesh, pTInterpMesh)), axis=1)/N)
-            Vn_imag_inte = (
-                np.sum(QnImagInterp((etaInterpMesh, pTInterpMesh)), axis=1)/N)
-        temp_vn_array.append(Vn_real_inte + 1j*Vn_imag_inte)  # Vn(eta)
-    temp_vn_array.append(totalN)
+            dp = np.zeros_like(pT_vals)
+            dp[1:-1] = 0.5*(pT_vals[2:] - pT_vals[:-2])
+            dp[0] = pT_vals[1] - pT_vals[0]
+            dp[-1] = pT_vals[-1] - pT_vals[-2]
+
+        weight = dN_vals * pT_vals * dp
+        N_eta_j = np.sum(weight)
+        N_eta.append(N_eta_j)
+        if np.sum(weight) > 0:
+            meanpT_eta.append(np.sum(dN_vals * pT_vals**2 * dp)/np.sum(dN_vals * pT_vals * dp))
+        else:
+            meanpT_eta.append(0.0)
+
+        for iorder in range(1, max_order + 1):
+            idx_real = 2*iorder + 2
+            idx_imag = 2*iorder + 3
+            if idx_imag < ncols:
+                Qn_real = rows[:, idx_real]
+                Qn_imag = rows[:, idx_imag]
+                if weightType == 1:
+                    num_real = np.sum(Qn_real * pT_vals * weight)
+                    num_imag = np.sum(Qn_imag * pT_vals * weight)
+                else:
+                    num_real = np.sum(Qn_real * weight)
+                    num_imag = np.sum(Qn_imag * weight)
+                denom = np.sum(weight) + EPS
+                Vn_eta[iorder-1].append(num_real/denom + 1j*(num_imag/denom))
+            else:
+                Vn_eta[iorder-1].append(0.0+0.0j)
+
+    etas_sorted = np.array(etas)
+    N_eta = np.array(N_eta)
+    meanpT_eta = np.array(meanpT_eta)
+    totalN = np.trapz(N_eta, etas_sorted)
+
+    temp_vn_array = [N_eta, meanpT_eta]
+    for iorder in range(1, NORDER + 1):
+        if iorder <= max_order:
+            temp_vn_array.append(np.array(Vn_eta[iorder-1]))
+        else:
+            temp_vn_array.append(np.zeros_like(N_eta, dtype=complex))
+
+    temp_vn_array.append(totalN * Nevents)
     return temp_vn_array
 
 
@@ -364,19 +437,36 @@ for ievent, event_i in enumerate(eventList):
         outdata[event_i]["{}_dNdy_meanpT".format(pidName)] = dN_vector
 
     # charged hadron vn with different kinematic cuts
-    vn_filename = f'particle_9999_pTeta_distribution{weakString}.dat'
-    vnInte_filename = f'particle_9999_vndata_eta_-0.5_0.5{weakString}.dat'
+    # try both 9999 and 99999 dataset name conventions
+    vn_filename_candidates = [f'particle_9999_pTeta_distribution{weakString}.dat',
+                              f'particle_99999_pTeta_distribution{weakString}.dat']
+    vnInte_filename_candidates = [f'particle_9999_vndata_eta_-0.5_0.5{weakString}.dat',
+                                  f'particle_99999_vndata_eta_-0.5_0.5{weakString}.dat']
     for exp_i, expName in enumerate(kinematicCutsDict):
         pTetacut = kinematicCutsDict[expName]
-        vn_data = np.nan_to_num(eventGroup.get(vn_filename))
-        vnInte_data = np.nan_to_num(eventGroup.get(vnInte_filename))
+        vn_data = None
+        vnInte_data = None
+        for cand in vn_filename_candidates:
+            tmp = eventGroup.get(cand)
+            if tmp is not None:
+                vn_data = np.nan_to_num(tmp)
+                break
+        for cand in vnInte_filename_candidates:
+            tmp = eventGroup.get(cand)
+            if tmp is not None:
+                vnInte_data = np.nan_to_num(tmp)
+                break
+        if vn_data is None or vnInte_data is None:
+            print(f"Warning: missing pT/eta distribution datasets for event {event_i}; skipping {expName}")
+            continue
         N_hadronic_events = vnInte_data[-1, 2]
         Vn_vector = calcualte_inte_Vn_pTeta(pTetacut['pTmin'],
                                             pTetacut['pTmax'],
                                             pTetacut['etamin'],
                                             pTetacut['etamax'], vn_data,
                                             N_hadronic_events)
-        outdata[event_i][expName] = np.array(Vn_vector)
+        # store Vn_vector as list to preserve per-order shapes
+        outdata[event_i][expName] = Vn_vector
 
     if pTdiffFlag:
         # pT-differential spectra and vn
@@ -405,19 +495,27 @@ for ievent, event_i in enumerate(eventList):
         photonFullres = []
         for ichannel, channelName in enumerate(photonList):
             vn_filename = f"{channelName}_Spvn_tot_ypTdiff.dat"
-            vn_data = np.nan_to_num(eventGroup.get(vn_filename))
-            if ichannel == 0:
-                photonFullres = vn_data
-                photonFullres[:, 3:] = (vn_data[:, 3:]
-                                        * vn_data[:, 2].reshape(-1, 1))
+            raw = eventGroup.get(vn_filename)
+            if raw is None:
+                print(f"Warning: missing photon dataset {vn_filename} for event {event_i}; skipping channel")
+                continue
+            vn_data = np.nan_to_num(raw)
+            if ichannel == 0 or len(photonFullres) == 0:
+                photonFullres = np.array(vn_data, copy=True)
+                if photonFullres.size > 0:
+                    photonFullres[:, 3:] = (vn_data[:, 3:]
+                                            * vn_data[:, 2].reshape(-1, 1))
             else:
                 photonFullres[:, 2] += vn_data[:, 2]
                 photonFullres[:, 3:] += (vn_data[:, 3:]
                                          * vn_data[:, 2].reshape(-1, 1))
-        photonFullres[:, 3:] /= photonFullres[:, 2].reshape(-1, 1)
-        outdata[event_i]["photon_ypTdiff"] = photonFullres[:, 2:]
-        outdata[event_i]["photon_pTArr"] = np.unique(photonFullres[:, 1])
-        outdata[event_i]["photon_yArr"] = np.unique(photonFullres[:, 0])
+        if len(photonFullres) > 0:
+            photonFullres[:, 3:] /= photonFullres[:, 2].reshape(-1, 1)
+            outdata[event_i]["photon_ypTdiff"] = photonFullres[:, 2:]
+            outdata[event_i]["photon_pTArr"] = np.unique(photonFullres[:, 1])
+            outdata[event_i]["photon_yArr"] = np.unique(photonFullres[:, 0])
+        else:
+            print(f"No photon channels found for event {event_i}; skipping photon outputs")
 
         dileptonFileName = "Dilepton_QGPNLO_Spvn_eq_MInv.dat"
         outdata[event_i]["dilepton_MInv"] = (
@@ -428,23 +526,38 @@ for ievent, event_i in enumerate(eventList):
 
     if etadiffFlag:
         # eta-differential spectra and vn
-        vn_filename = f'particle_9999_pTeta_distribution{weakString}.dat'
-        vnInte_filename = f'particle_9999_vndata_eta_-0.5_0.5{weakString}.dat'
-        vn_data = np.nan_to_num(eventGroup.get(vn_filename))
-        vnInte_data = np.nan_to_num(eventGroup.get(vnInte_filename))
-        N_hadronic_events = vnInte_data[-1, 2]
-        # for longitudinal derrelation
-        Vn_vector = calcualte_inte_Vneta_pTeta(0.4, 4.0, vn_data,
-                                               N_hadronic_events, 0)
-        outdata[event_i]["chVneta_pT_0p4_4"] = np.array(Vn_vector)
+        vn_filename_candidates = [f'particle_9999_pTeta_distribution{weakString}.dat',
+                                  f'particle_99999_pTeta_distribution{weakString}.dat']
+        vnInte_filename_candidates = [f'particle_9999_vndata_eta_-0.5_0.5{weakString}.dat',
+                                      f'particle_99999_vndata_eta_-0.5_0.5{weakString}.dat']
+        vn_data = None
+        vnInte_data = None
+        for cand in vn_filename_candidates:
+            tmp = eventGroup.get(cand)
+            if tmp is not None:
+                vn_data = np.nan_to_num(tmp)
+                break
+        for cand in vnInte_filename_candidates:
+            tmp = eventGroup.get(cand)
+            if tmp is not None:
+                vnInte_data = np.nan_to_num(tmp)
+                break
+        if vn_data is None or vnInte_data is None:
+            print(f"Warning: missing pT/eta distribution datasets for event {event_i}; skipping eta-differential vn")
+        else:
+            N_hadronic_events = vnInte_data[-1, 2]
+            # for longitudinal derrelation
+            Vn_vector = calcualte_inte_Vneta_pTeta(0.4, 4.0, vn_data,
+                                                   N_hadronic_events, 0)
+            outdata[event_i]["chVneta_pT_0p4_4"] = Vn_vector
 
-        # for vn(eta)
-        Vn_vector = calcualte_inte_Vneta_pTeta(0.15, 2.0, vn_data,
-                                               N_hadronic_events, 0)
-        outdata[event_i]["chVneta_pT_0p15_2"] = np.array(Vn_vector)
-        Vn_vector = calcualte_inte_Vneta_pTeta(0.15, 2.0, vn_data,
-                                               N_hadronic_events, 1)
-        outdata[event_i]["chVneta_pTw_pT_0p15_2"] = np.array(Vn_vector)
+            # for vn(eta)
+            Vn_vector = calcualte_inte_Vneta_pTeta(0.15, 2.0, vn_data,
+                                                   N_hadronic_events, 0)
+            outdata[event_i]["chVneta_pT_0p15_2"] = Vn_vector
+            Vn_vector = calcualte_inte_Vneta_pTeta(0.15, 2.0, vn_data,
+                                                   N_hadronic_events, 1)
+            outdata[event_i]["chVneta_pTw_pT_0p15_2"] = Vn_vector
 
         vn_filename = f"particle_9999_dNdeta_pT_0.2_3{weakString}.dat"
         vn_data = np.nan_to_num(eventGroup.get(vn_filename))

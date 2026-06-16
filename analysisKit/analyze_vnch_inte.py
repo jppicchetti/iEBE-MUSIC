@@ -950,10 +950,32 @@ for icen in range(len(centralityCutList) - 1):
     QnArr3 = []
     piddNArr = []
     pidmeanpTArr = []
+
+    def _coerce_qn_entry(entry):
+        vals = []
+        for x in entry:
+            xa = np.asarray(x)
+            if xa.ndim == 0:
+                vals.append(xa.item())
+            elif xa.size == 1:
+                vals.append(xa.reshape(-1)[0].item())
+            else:
+                # Skip vector-valued tails from alternate extractor formats.
+                continue
+        return np.array(vals, dtype=np.complex128)
+
+    # Support both ALICE-named and STAR-named keys in the extracted database.
+    key_ref = 'ALICE_eta_-0p4_0p4'
+    key_sub1 = 'ALICE_eta_-0p8_-0p4'
+    key_sub2 = 'ALICE_eta_0p4_0p8'
+    if key_ref not in data[selected_events_list[0]]:
+        key_ref = 'STAR_eta_-0p5_0p5_pT_0p2_4'
+        key_sub1 = 'STAR_eta_-1_-0p5_pT_0p2_4'
+        key_sub2 = 'STAR_eta_0p5_1_pT_0p2_4'
     for event_name in selected_events_list:
-        QnArr1.append(data[event_name]['ALICE_eta_-0p4_0p4'])
-        QnArr2.append(data[event_name]['ALICE_eta_-0p8_-0p4'])
-        QnArr3.append(data[event_name]['ALICE_eta_0p4_0p8'])
+        QnArr1.append(_coerce_qn_entry(data[event_name][key_ref]))
+        QnArr2.append(_coerce_qn_entry(data[event_name][key_sub1]))
+        QnArr3.append(_coerce_qn_entry(data[event_name][key_sub2]))
         dNtmp = []
         meanpTtmp = []
         dNtmp.append(data[event_name]['Nch'])
