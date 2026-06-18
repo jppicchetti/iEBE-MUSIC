@@ -4,11 +4,23 @@
 
 import re
 import sys
-from os import path, makedirs
+from os import path, makedirs, getcwd
 import argparse
 import random
 
 FILENAME = "singularity.submit"
+
+
+def find_repo_root():
+    """Find the iEBE-MUSIC repository root by looking for known markers."""
+    current = path.abspath(".")
+    while current != path.dirname(current):
+        if (path.exists(path.join(current, "README.md")) and
+                path.exists(path.join(current, "config")) and
+                path.exists(path.join(current, "Cluster_supports"))):
+            return current
+        current = path.dirname(current)
+    return None
 
 
 def detect_afterburner(param_file):
@@ -22,6 +34,34 @@ def detect_afterburner(param_file):
     except Exception:
         pass
     return "UrQMD"
+
+
+def detect_seed_file(param_file):
+    """Return the isobar seed file referenced by the parameter file, if any."""
+    try:
+        with open(param_file, 'r') as f:
+            content = f.read()
+        m = re.search(r"isobar_seed_file\s*[=:]\s*['\"]([^'\"]+)['\"]", content)
+        if m:
+            seed_path = m.group(1)
+            if path.isabs(seed_path):
+                return seed_path if path.exists(seed_path) else None
+
+            candidates = []
+            param_dir = path.dirname(path.abspath(param_file))
+            candidates.append(path.join(param_dir, seed_path))
+            repo_root = find_repo_root()
+            if repo_root:
+                candidates.append(path.join(repo_root, seed_path))
+            candidates.append(path.join(getcwd(), seed_path))
+            candidates.append(path.join(getcwd(), "shared_seeds", path.basename(seed_path)))
+
+            for candidate in candidates:
+                if path.exists(candidate):
+                    return candidate
+    except Exception:
+        pass
+    return None
 
 
 # ── UrQMD mode (original logic) ──────────────────────────────────────────────
@@ -55,18 +95,27 @@ WhenToTransferOutput = ON_EXIT
 Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTransferPluginMethods)
 """.format(jobName, imagePathHeader + para_dict_["singularity_image_path"]))
 
+    input_files = [para_dict_['param_file']]
     if para_dict_['bayesFlag']:
-        script.write("\ntransfer_input_files = {}, {}\n".format(
-            para_dict_['param_file'], para_dict_['bayes_file']))
-    else:
-        script.write("\ntransfer_input_files = {}\n".format(
-            para_dict_['param_file']))
+        input_files.append(para_dict_['bayes_file'])
+    seed_file = detect_seed_file(para_dict_['param_file'])
+    if seed_file:
+        input_files.append(seed_file)
+    script.write("\ntransfer_input_files = {}\n".format(
+        ", ".join(input_files)))
 
     script.write(
         "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
 
+    if para_dict_.get("output_mode", "quiet") == "verbose":
+        transfer_output = "playground/event_0/EVENT_RESULTS_$(Process)"
+    else:
+        transfer_output = (
+            "playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5"
+        )
+
     script.write("""
-transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5
+transfer_output_files = {3}
 
 error = log/job.$(Cluster).$(Process).error
 output = log/job.$(Cluster).$(Process).output
@@ -94,11 +143,12 @@ request_disk = 2 GB
 
 # Queue one job with the above specifications.
 queue {2:d}""".format(para_dict_["n_threads"], para_dict_["memory_per_job"],
-                      para_dict_["n_jobs"]))
+                      para_dict_["n_jobs"], transfer_output))
     script.close()
 
 
 def write_job_running_script_urqmd(para_dict_):
+    seed_file = detect_seed_file(para_dict_["param_file"])
     script = open("run_singularity.sh", "w")
     script.write("""#!/usr/bin/env bash
 
@@ -118,6 +168,18 @@ printf "system kernel: `uname -r`\\n"
 printf "Job running as user: `/usr/bin/id`\\n"
 
 """)
+    if seed_file:
+        script.write("""
+mkdir -p shared_seeds
+seed_base=$(basename "{0}")
+if [ -f "${{seed_base}}" ] && [ ! -f "shared_seeds/${{seed_base}}" ]; then
+    cp "${{seed_base}}" "shared_seeds/${{seed_base}}"
+fi
+if [ -f "{0}" ] && [ ! -f "shared_seeds/${{seed_base}}" ]; then
+    cp "{0}" "shared_seeds/${{seed_base}}"
+fi
+""".format(seed_file))
+
     if para_dict_["bayesFlag"]:
         script.write("""bayesFile=$6
 
@@ -146,7 +208,7 @@ def write_submission_script_smash(para_dict_):
     jobName = "iEBEMUSIC_{}".format(para_dict_["job_name"])
     random_seed = random.SystemRandom().randint(0, 10000000)
     imagePathHeader = "osdf://"
-    seed_file = para_dict_.get("seed_file", "")
+    seed_file = para_dict_.get("seed_file", "") or detect_seed_file(para_dict_["param_file"])
     script = open(FILENAME, "w")
 
     # Build arguments: param_file $(Process) n_events n_threads seed [bayes_file] [seed_file]
@@ -186,8 +248,15 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
     #script.write(
     #    "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
 
+    if para_dict_.get("output_mode", "quiet") == "verbose":
+        transfer_output = "playground/event_0/EVENT_RESULTS_$(Process)"
+    else:
+        transfer_output = (
+            "playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5"
+        )
+
     script.write("""
-transfer_output_files = playground/event_0/EVENT_RESULTS_$(Process)
+transfer_output_files = {3}
 
 error = log/job.$(Cluster).$(Process).error
 output = log/job.$(Cluster).$(Process).output
@@ -215,12 +284,12 @@ request_disk = 2 GB
 
 # Queue one job with the above specifications.
 queue {2:d}""".format(para_dict_["n_threads"], para_dict_["memory_per_job"],
-                      para_dict_["n_jobs"]))
+                      para_dict_["n_jobs"], transfer_output))
     script.close()
 
 
 def write_job_running_script_smash(para_dict_):
-    seed_file = para_dict_.get("seed_file", "")
+    seed_file = para_dict_.get("seed_file", "") or detect_seed_file(para_dict_["param_file"])
     # seedfile position: after bayesFile (if present), otherwise after seed ($5)
     seedfile_pos = 7 if para_dict_["bayesFlag"] else 6
 
@@ -279,6 +348,13 @@ echo "==========================="
 
     if para_dict_["bayesFlag"]:
         script.write("bayesFile=$6\n")
+
+    if seed_file:
+        script.write("seedfile=${{{}}}\n".format(seedfile_pos))
+        script.write("mkdir -p shared_seeds\n")
+        script.write("seed_base=$(basename \"${seedfile}\")\n")
+        script.write("if [ -f \"${seed_base}\" ] && [ ! -f \"shared_seeds/${seed_base}\" ]; then cp \"${seed_base}\" \"shared_seeds/${seed_base}\"; fi\n")
+        script.write("if [ -f \"${seedfile}\" ] && [ ! -f \"shared_seeds/${seed_base}\" ]; then cp \"${seedfile}\" \"shared_seeds/${seed_base}\"; fi\n")
 
     if para_dict_["bayesFlag"]:
         script.write("""
@@ -341,7 +417,10 @@ if __name__ == "__main__":
                         default=2, help='memory per job (GB)')
     parser.add_argument('-seed_file', '--seed_file', metavar='', type=str,
                         default="",
-                        help='isobar nucleon seed HDF5 file (TRENTo/SMASH only)')
+                        help='isobar nucleon seed HDF5 file (TRENTo/SMASH only; auto-detected from parameter file if omitted)')
+    parser.add_argument('-output_mode', '--output_mode', metavar='', type=str,
+                        default='quiet', choices=['quiet', 'verbose'],
+                        help='output transfer mode: quiet=spvn only, verbose=full EVENT_RESULTS')
 
     if len(sys.argv) < 2:
         parser.print_help()
