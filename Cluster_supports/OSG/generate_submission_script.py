@@ -70,6 +70,7 @@ def write_submission_script_urqmd(para_dict_):
     jobName = "iEBEMUSIC_{}".format(para_dict_["job_name"])
     random_seed = random.SystemRandom().randint(0, 10000000)
     imagePathHeader = "osdf://"
+    seed_file = detect_seed_file(para_dict_["param_file"])
     script = open(FILENAME, "w")
 
     if para_dict_["bayesFlag"]:
@@ -98,7 +99,6 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
     input_files = [para_dict_['param_file']]
     if para_dict_['bayesFlag']:
         input_files.append(para_dict_['bayes_file'])
-    seed_file = detect_seed_file(para_dict_['param_file'])
     if seed_file:
         input_files.append(seed_file)
     script.write("\ntransfer_input_files = {}\n".format(
@@ -208,7 +208,7 @@ def write_submission_script_smash(para_dict_):
     jobName = "iEBEMUSIC_{}".format(para_dict_["job_name"])
     random_seed = random.SystemRandom().randint(0, 10000000)
     imagePathHeader = "osdf://"
-    seed_file = para_dict_.get("seed_file", "") or detect_seed_file(para_dict_["param_file"])
+    seed_file = detect_seed_file(para_dict_["param_file"])
     script = open(FILENAME, "w")
 
     # Build arguments: param_file $(Process) n_events n_threads seed [bayes_file] [seed_file]
@@ -289,7 +289,7 @@ queue {2:d}""".format(para_dict_["n_threads"], para_dict_["memory_per_job"],
 
 
 def write_job_running_script_smash(para_dict_):
-    seed_file = para_dict_.get("seed_file", "") or detect_seed_file(para_dict_["param_file"])
+    seed_file = detect_seed_file(para_dict_["param_file"])
     # seedfile position: after bayesFile (if present), otherwise after seed ($5)
     seedfile_pos = 7 if para_dict_["bayesFlag"] else 6
 
@@ -415,9 +415,6 @@ if __name__ == "__main__":
                         default="", help='bayes file')
     parser.add_argument('-mem', '--memory_per_job', metavar='', type=int,
                         default=2, help='memory per job (GB)')
-    parser.add_argument('-seed_file', '--seed_file', metavar='', type=str,
-                        default="",
-                        help='isobar nucleon seed HDF5 file (TRENTo/SMASH only; auto-detected from parameter file if omitted)')
     parser.add_argument('-output_mode', '--output_mode', metavar='', type=str,
                         default='quiet', choices=['quiet', 'verbose'],
                         help='output transfer mode: quiet=spvn only, verbose=full EVENT_RESULTS')
