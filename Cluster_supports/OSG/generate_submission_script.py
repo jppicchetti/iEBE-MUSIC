@@ -108,7 +108,7 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
         "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
 
     if para_dict_.get("output_mode", "quiet") == "verbose":
-        transfer_output = "playground/event_0/EVENT_RESULTS_$(Process)"
+        transfer_output = "playground/event_0/EVENT_RESULTS_$(Process).tar.gz"
     else:
         transfer_output = (
             "playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5"
@@ -198,6 +198,14 @@ if [ $status -ne 0 ]; then
     exit $status
 fi
 """)
+    if para_dict_.get("output_mode", "quiet") == "verbose":
+        script.write("""
+tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
+status=$?
+if [ $status -ne 0 ]; then
+    exit $status
+fi
+""")
     script.close()
 
 
@@ -248,7 +256,7 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
     #    "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
 
     if para_dict_.get("output_mode", "quiet") == "verbose":
-        transfer_output = "playground/event_0/EVENT_RESULTS_$(Process)"
+        transfer_output = "playground/event_0/EVENT_RESULTS_$(Process).tar.gz"
     else:
         transfer_output = (
             "playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5"
@@ -367,6 +375,14 @@ echo "==========================="
     script.write("""
 cd playground/event_0
 bash submit_job.script
+status=$?
+if [ $status -ne 0 ]; then
+    exit $status
+fi
+""")
+    if para_dict_.get("output_mode", "quiet") == "verbose":
+        script.write("""
+tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
