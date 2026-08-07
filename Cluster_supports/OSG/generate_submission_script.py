@@ -192,12 +192,12 @@ status=$?
 if [ $status -ne 0 ]; then
     exit $status
 fi
-""")
 tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
 fi
+""")
     script.close()
 
 
@@ -366,12 +366,12 @@ status=$?
 if [ $status -ne 0 ]; then
     exit $status
 fi
-""")
 tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
 fi
+""")
     script.close()
 
 
