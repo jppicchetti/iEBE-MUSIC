@@ -76,15 +76,17 @@ def write_submission_script_urqmd(para_dict_):
     if para_dict_["bayesFlag"]:
         script.write("""universe = vanilla
 executable = run_singularity.sh
-arguments = {0} $(Process) {1} {2} {3} {4}
+arguments = {0} $(Process) {1} {2} {3} {4} {5}
 """.format(para_dict_["param_file"], para_dict_["n_events_per_job"],
-           para_dict_["n_threads"], random_seed, para_dict_["bayes_file"]))
+           para_dict_["n_threads"], random_seed, para_dict_["bayes_file"],
+           para_dict_["singularity_image_path"]))
     else:
         script.write("""universe = vanilla
 executable = run_singularity.sh
-arguments = {0} $(Process) {1} {2} {3}
+arguments = {0} $(Process) {1} {2} {3} {4}
 """.format(para_dict_["param_file"], para_dict_["n_events_per_job"],
-           para_dict_["n_threads"], random_seed))
+           para_dict_["n_threads"], random_seed,
+           para_dict_["singularity_image_path"]))
 
     script.write("""
 JobBatchName = {0}
@@ -188,11 +190,6 @@ for seed_hdf in *.hdf; do
     fi
 done
 
-# Also handle the case where seed files are already transferred into shared_seeds
-if [ -d "${jobdir}/shared_seeds" ] && [ ! -d "${jobdir}/shared_seeds" ]; then
-    cp -r "${jobdir}/shared_seeds" "${jobdir}/shared_seeds"
-fi
-
 printf "Start time: `/bin/date`\\n"
 printf "Job is running on node: `/bin/hostname`\\n"
 printf "system kernel: `uname -r`\\n"
@@ -204,28 +201,32 @@ printf "Job running as user: `/usr/bin/id`\\n"
 
     script.write("SINGULARITY_IMAGE=${{{}}}\n\n".format(sif_pos))
 
-    # HTCondor transfers the .sif as basename into the scratch dir.
-    # Capture scratch dir and build absolute SIF path before any cd.
+    # OSG transfers the .sif into the scratch dir as a basename.
+    # Capture scratch dir and make the container run from the same path,
+    # so relative parameter/script paths resolve correctly inside the image.
     script.write('SCRATCH_DIR="${PWD}"\n')
     script.write('SIF="${SCRATCH_DIR}/$(basename ${SINGULARITY_IMAGE})"\n\n')
+    script.write('if [ ! -f "${SIF}" ]; then echo "Missing singularity image: ${SIF}" >&2; exit 1; fi\n\n')
 
     if para_dict_["bayesFlag"]:
         script.write(
-            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
+            'cd "${SCRATCH_DIR}"\n'
+            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" --pwd "${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
         script.write(
-            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
+            'cd "${SCRATCH_DIR}"\n'
+            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" --pwd "${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "--nocopy --continueFlag\n")
 
     script.write("""
-cd playground/event_0
+cd "${SCRATCH_DIR}/playground/event_0"
 bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
@@ -249,7 +250,7 @@ def write_submission_script_smash(para_dict_):
     seed_file = detect_seed_file(para_dict_["param_file"])
     script = open(FILENAME, "w")
 
-    # Build arguments: param_file $(Process) n_events n_threads seed [bayes_file] [seed_file]
+    # Build arguments: param_file $(Process) n_events n_threads seed [bayes_file] [seed_file] singularity_image
     if para_dict_["bayesFlag"]:
         args_str = "{0} $(Process) {1} {2} {3} {4}".format(
             para_dict_["param_file"], para_dict_["n_events_per_job"],
@@ -260,6 +261,7 @@ def write_submission_script_smash(para_dict_):
             para_dict_["n_threads"], random_seed)
     if seed_file:
         args_str += " {}".format(seed_file)
+    args_str += " {}".format(para_dict_["singularity_image_path"])
 
     script.write("""universe = vanilla
 executable = run_singularity.sh
@@ -388,6 +390,9 @@ echo "==========================="
         script.write("seed_base=$(basename \"${seedfile}\")\n")
         script.write("if [ -f \"${seed_base}\" ] && [ ! -f \"shared_seeds/${seed_base}\" ]; then cp \"${seed_base}\" \"shared_seeds/${seed_base}\"; fi\n")
         script.write("if [ -f \"${seedfile}\" ] && [ ! -f \"shared_seeds/${seed_base}\" ]; then cp \"${seedfile}\" \"shared_seeds/${seed_base}\"; fi\n")
+        script.write("SEED_ARG=--isobar_seed_file\n")
+    else:
+        script.write("SEED_ARG=\"\"\n")
 
     # Determine singularity image positional argument: it is the final argument
     sif_pos = seedfile_pos + (1 if seed_file else 0)
@@ -395,24 +400,27 @@ echo "==========================="
     script.write("SINGULARITY_IMAGE=${{{}}}\n\n".format(sif_pos))
     script.write('SCRATCH_DIR="${PWD}"\n')
     script.write('SIF="${SCRATCH_DIR}/$(basename ${SINGULARITY_IMAGE})"\n\n')
+    script.write('if [ ! -f "${SIF}" ]; then echo "Missing singularity image: ${SIF}" >&2; exit 1; fi\n\n')
 
     if para_dict_["bayesFlag"]:
         script.write(
-            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
+            'cd "${SCRATCH_DIR}"\n'
+            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" --pwd "${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
         script.write(
-            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
+            'cd "${SCRATCH_DIR}"\n'
+            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" --pwd "${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
             "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
             "--nocopy --continueFlag\n")
 
     script.write("""
-cd playground/event_0
+cd "${SCRATCH_DIR}/playground/event_0"
 bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
