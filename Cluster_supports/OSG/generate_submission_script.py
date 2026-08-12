@@ -148,6 +148,7 @@ def write_job_running_script_urqmd(para_dict_):
     seed_file = detect_seed_file(para_dict_["param_file"])
     script = open("run_singularity.sh", "w")
     script.write("""#!/usr/bin/env bash
+set -e
 
 parafile=$1
 processId=$2
@@ -159,10 +160,14 @@ export PYTHONIOENCODING=utf-8
 export PATH="${PATH}:/usr/lib64/openmpi/bin:/usr/local/gsl/2.5/x86_64/bin"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/gsl/2.5/x86_64/lib64"
 
+SCRATCH_DIR="${PWD}"
+cd "${SCRATCH_DIR}"
+
 printf "Start time: `/bin/date`\\n"
 printf "Job is running on node: `/bin/hostname`\\n"
 printf "system kernel: `uname -r`\\n"
 printf "Job running as user: `/usr/bin/id`\\n"
+printf "Working directory: ${SCRATCH_DIR}\\n"
 
 """)
     if seed_file:
@@ -181,14 +186,36 @@ fi
         script.write("""bayesFile=$6
 
 /opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
+status=$?
+if [ $status -ne 0 ]; then
+    echo "generate_jobs.py failed with exit code ${status}" >&2
+    exit $status
+fi
 """)
     else:
         script.write("""
 /opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
+status=$?
+if [ $status -ne 0 ]; then
+    echo "generate_jobs.py failed with exit code ${status}" >&2
+    exit $status
+fi
 """)
 
     script.write("""
-cd playground/event_0
+if [ ! -d "${SCRATCH_DIR}/playground/event_0" ]; then
+    echo "Missing expected job directory: ${SCRATCH_DIR}/playground/event_0" >&2
+    ls -la "${SCRATCH_DIR}" >&2 || true
+    ls -la "${SCRATCH_DIR}/playground" >&2 || true
+    exit 1
+fi
+
+cd "${SCRATCH_DIR}/playground/event_0"
+if [ ! -f "submit_job.script" ]; then
+    echo "Missing submit_job.script in ${SCRATCH_DIR}/playground/event_0" >&2
+    ls -la >&2
+    exit 1
+fi
 bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
@@ -292,6 +319,7 @@ def write_job_running_script_smash(para_dict_):
 
     script = open("run_singularity.sh", "w")
     script.write("""#!/usr/bin/env bash
+set -e
 
 parafile=$1
 processId=$2
@@ -302,6 +330,9 @@ seed=$5
 export PYTHONIOENCODING=utf-8
 export PATH="${PATH}:/usr/lib64/openmpi/bin:/usr/local/gsl/2.5/x86_64/bin"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/gsl/2.5/x86_64/lib64"
+
+SCRATCH_DIR="${PWD}"
+cd "${SCRATCH_DIR}"
 
 jobdir=$(pwd)
 export JOBDIR="${jobdir}"
@@ -331,6 +362,7 @@ printf "Start time: `/bin/date`\\n"
 printf "Job is running on node: `/bin/hostname`\\n"
 printf "system kernel: `uname -r`\\n"
 printf "Job running as user: `/usr/bin/id`\\n"
+printf "Working directory: ${SCRATCH_DIR}\\n"
 
 echo "==== Environment debug ===="
 echo "PWD=${PWD}"
@@ -359,14 +391,36 @@ echo "==========================="
     if para_dict_["bayesFlag"]:
         script.write("""
 /opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
+status=$?
+if [ $status -ne 0 ]; then
+    echo "generate_jobs.py failed with exit code ${status}" >&2
+    exit $status
+fi
 """)
     else:
         script.write("""
 /opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
+status=$?
+if [ $status -ne 0 ]; then
+    echo "generate_jobs.py failed with exit code ${status}" >&2
+    exit $status
+fi
 """)
 
     script.write("""
-cd playground/event_0
+if [ ! -d "${SCRATCH_DIR}/playground/event_0" ]; then
+    echo "Missing expected job directory: ${SCRATCH_DIR}/playground/event_0" >&2
+    ls -la "${SCRATCH_DIR}" >&2 || true
+    ls -la "${SCRATCH_DIR}/playground" >&2 || true
+    exit 1
+fi
+
+cd "${SCRATCH_DIR}/playground/event_0"
+if [ ! -f "submit_job.script" ]; then
+    echo "Missing submit_job.script in ${SCRATCH_DIR}/playground/event_0" >&2
+    ls -la >&2
+    exit 1
+fi
 bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
