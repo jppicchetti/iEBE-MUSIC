@@ -4,7 +4,7 @@
 
 import re
 import sys
-from os import path, makedirs, getcwd
+from os import path, makedirs, getcwd, chmod
 import argparse
 import random
 
@@ -93,16 +93,16 @@ JobBatchName = {0}
 
 should_transfer_files = YES
 WhenToTransferOutput = ON_EXIT
-""".format(jobName))
 
-    # Include param/bayes/seed and the singularity image in transferred inputs
++SingularityImage = "{1}"
+Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTransferPluginMethods)
+""".format(jobName, imagePathHeader + para_dict_["singularity_image_path"]))
+
     input_files = [para_dict_['param_file']]
     if para_dict_['bayesFlag']:
         input_files.append(para_dict_['bayes_file'])
     if seed_file:
         input_files.append(seed_file)
-    # Transfer the .sif so it is available in the worker scratch dir
-    input_files.append(para_dict_["singularity_image_path"])
     script.write("\ntransfer_input_files = {}\n".format(
         ", ".join(input_files)))
 
@@ -145,9 +145,6 @@ queue {2:d}""".format(para_dict_["n_threads"], para_dict_["memory_per_job"],
 
 
 def write_job_running_script_urqmd(para_dict_):
-    # sif is the last positional arg in the arguments list for OSG mode
-    sif_pos = 6 if not para_dict_["bayesFlag"] else 7
-
     seed_file = detect_seed_file(para_dict_["param_file"])
     script = open("run_singularity.sh", "w")
     script.write("""#!/usr/bin/env bash
@@ -162,71 +159,36 @@ export PYTHONIOENCODING=utf-8
 export PATH="${PATH}:/usr/lib64/openmpi/bin:/usr/local/gsl/2.5/x86_64/bin"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/gsl/2.5/x86_64/lib64"
 
-jobdir=$(pwd)
-export JOBDIR="${jobdir}"
-export TMPDIR="${jobdir}/tmp"
-export XDG_DATA_HOME="${jobdir}/.local/share"
-export XDG_CACHE_HOME="${jobdir}/.cache"
-export TRENTO_CACHE="${jobdir}/.trento"
-
-export SINGULARITYENV_TMPDIR="${TMPDIR}"
-export SINGULARITYENV_XDG_DATA_HOME="${XDG_DATA_HOME}"
-export SINGULARITYENV_XDG_CACHE_HOME="${XDG_CACHE_HOME}"
-export SINGULARITYENV_TRENTO_CACHE="${TRENTO_CACHE}"
-
-mkdir -p "${TMPDIR}"
-mkdir -p "${XDG_DATA_HOME}"
-mkdir -p "${XDG_CACHE_HOME}"
-mkdir -p "${TRENTO_CACHE}"
-mkdir -p "${XDG_DATA_HOME}/trento"
-
-mkdir -p shared_seeds
-
-# HTCondor transfers seed files with relative paths; copy them into shared_seeds/
-# if they're in a subdirectory (e.g., shared_seeds/nucleon-seeds_197.hdf)
-for seed_hdf in *.hdf; do
-    if [ -f "${jobdir}/${seed_hdf}" ] && [ ! -f "${jobdir}/shared_seeds/${seed_hdf}" ]; then
-        cp "${jobdir}/${seed_hdf}" "${jobdir}/shared_seeds/${seed_hdf}"
-    fi
-done
-
 printf "Start time: `/bin/date`\\n"
 printf "Job is running on node: `/bin/hostname`\\n"
 printf "system kernel: `uname -r`\\n"
 printf "Job running as user: `/usr/bin/id`\\n"
 
 """)
+    if seed_file:
+        script.write("""
+mkdir -p shared_seeds
+seed_base=$(basename "{0}")
+if [ -f "${{seed_base}}" ] && [ ! -f "shared_seeds/${{seed_base}}" ]; then
+    cp "${{seed_base}}" "shared_seeds/${{seed_base}}"
+fi
+if [ -f "{0}" ] && [ ! -f "shared_seeds/${{seed_base}}" ]; then
+    cp "{0}" "shared_seeds/${{seed_base}}"
+fi
+""".format(seed_file))
+
     if para_dict_["bayesFlag"]:
-        script.write("bayesFile=$6\n")
+        script.write("""bayesFile=$6
 
-    script.write("SINGULARITY_IMAGE=${{{}}}\n\n".format(sif_pos))
-
-    # OSG transfers the .sif into the scratch dir as a basename.
-    # Capture scratch dir and make the container run from the same path,
-    # so relative parameter/script paths resolve correctly inside the image.
-    script.write('SCRATCH_DIR="${PWD}"\n')
-    script.write('SIF="${SCRATCH_DIR}/$(basename ${SINGULARITY_IMAGE})"\n\n')
-    script.write('if [ ! -f "${SIF}" ]; then echo "Missing singularity image: ${SIF}" >&2; exit 1; fi\n\n')
-
-    if para_dict_["bayesFlag"]:
-        script.write(
-            'cd "${SCRATCH_DIR}"\n'
-            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" --pwd "${SCRATCH_DIR}" "${SIF}" '
-            "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
-            "-par ${parafile} -id ${processId} -n_th ${nthreads} "
-            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
-            "-b ${bayesFile} --nocopy --continueFlag\n")
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
+""")
     else:
-        script.write(
-            'cd "${SCRATCH_DIR}"\n'
-            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" --pwd "${SCRATCH_DIR}" "${SIF}" '
-            "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
-            "-par ${parafile} -id ${processId} -n_th ${nthreads} "
-            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
-            "--nocopy --continueFlag\n")
+        script.write("""
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
+""")
 
     script.write("""
-cd "${SCRATCH_DIR}/playground/event_0"
+cd playground/event_0
 bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
@@ -239,6 +201,7 @@ if [ $status -ne 0 ]; then
 fi
 """)
     script.close()
+    chmod("run_singularity.sh", 0o755)
 
 
 # ── SMASH mode (TRENTo + isobar seeds) ───────────────────────────────────────
@@ -250,7 +213,7 @@ def write_submission_script_smash(para_dict_):
     seed_file = detect_seed_file(para_dict_["param_file"])
     script = open(FILENAME, "w")
 
-    # Build arguments: param_file $(Process) n_events n_threads seed [bayes_file] [seed_file] singularity_image
+    # Build arguments: param_file $(Process) n_events n_threads seed [bayes_file] [seed_file]
     if para_dict_["bayesFlag"]:
         args_str = "{0} $(Process) {1} {2} {3} {4}".format(
             para_dict_["param_file"], para_dict_["n_events_per_job"],
@@ -261,7 +224,6 @@ def write_submission_script_smash(para_dict_):
             para_dict_["n_threads"], random_seed)
     if seed_file:
         args_str += " {}".format(seed_file)
-    args_str += " {}".format(para_dict_["singularity_image_path"])
 
     script.write("""universe = vanilla
 executable = run_singularity.sh
@@ -273,16 +235,16 @@ JobBatchName = {0}
 
 should_transfer_files = YES
 WhenToTransferOutput = ON_EXIT
-""".format(jobName))
 
-    # Include param/bayes/seed and the singularity image in transferred inputs
++SingularityImage = "{1}"
+Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTransferPluginMethods)
+""".format(jobName, imagePathHeader + para_dict_["singularity_image_path"]))
+
     input_files = [para_dict_['param_file']]
     if para_dict_['bayesFlag']:
         input_files.append(para_dict_['bayes_file'])
     if seed_file:
         input_files.append(seed_file)
-    # Transfer the .sif so it is available in the worker scratch dir
-    input_files.append(para_dict_["singularity_image_path"])
     script.write("\ntransfer_input_files = {}\n".format(", ".join(input_files)))
 
     #script.write(
@@ -394,33 +356,17 @@ echo "==========================="
     else:
         script.write("SEED_ARG=\"\"\n")
 
-    # Determine singularity image positional argument: it is the final argument
-    sif_pos = seedfile_pos + (1 if seed_file else 0)
-
-    script.write("SINGULARITY_IMAGE=${{{}}}\n\n".format(sif_pos))
-    script.write('SCRATCH_DIR="${PWD}"\n')
-    script.write('SIF="${SCRATCH_DIR}/$(basename ${SINGULARITY_IMAGE})"\n\n')
-    script.write('if [ ! -f "${SIF}" ]; then echo "Missing singularity image: ${SIF}" >&2; exit 1; fi\n\n')
-
     if para_dict_["bayesFlag"]:
-        script.write(
-            'cd "${SCRATCH_DIR}"\n'
-            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" --pwd "${SCRATCH_DIR}" "${SIF}" '
-            "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
-            "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
-            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
-            "-b ${bayesFile} --nocopy --continueFlag\n")
+        script.write("""
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
+""")
     else:
-        script.write(
-            'cd "${SCRATCH_DIR}"\n'
-            'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" --pwd "${SCRATCH_DIR}" "${SIF}" '
-            "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
-            "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
-            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
-            "--nocopy --continueFlag\n")
+        script.write("""
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
+""")
 
     script.write("""
-cd "${SCRATCH_DIR}/playground/event_0"
+cd playground/event_0
 bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
@@ -433,6 +379,7 @@ if [ $status -ne 0 ]; then
 fi
 """)
     script.close()
+    chmod("run_singularity.sh", 0o755)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
