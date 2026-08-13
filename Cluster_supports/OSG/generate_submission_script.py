@@ -180,6 +180,31 @@ fi
 if [ -f "{0}" ] && [ ! -f "shared_seeds/${{seed_base}}" ]; then
     cp "{0}" "shared_seeds/${{seed_base}}"
 fi
+python3 - "${{parafile}}" "shared_seeds/${{seed_base}}" <<'PY'
+from pathlib import Path
+import sys
+param_path = Path(sys.argv[1])
+seed_name = sys.argv[2]
+text = param_path.read_text()
+updated = False
+for marker in ["isobar_seed_file = ", "isobar_seed_file: ", "isobar_seed_file= "]:
+    idx = text.find(marker)
+    if idx < 0:
+        continue
+    start = idx + len(marker)
+    end = text.find("\n", start)
+    if end < 0:
+        end = len(text)
+    quote = text[start] if start < len(text) and text[start] in ('"', "'") else '"'
+    prefix = text[:start]
+    suffix = text[end:]
+    text = prefix + quote + seed_name + quote + suffix
+    updated = True
+    break
+if not updated:
+    raise SystemExit("isobar_seed_file not found in parameter file")
+param_path.write_text(text)
+PY
 """.format(seed_file))
 
     if para_dict_["bayesFlag"]:
