@@ -74,19 +74,25 @@ def write_submission_script_urqmd(para_dict_):
     script = open(FILENAME, "w")
 
     if para_dict_["bayesFlag"]:
+        args = "{0} $(Process) {1} {2} {3} {4}".format(
+            para_dict_["param_file"], para_dict_["n_events_per_job"],
+            para_dict_["n_threads"], random_seed, para_dict_["bayes_file"])
+        if seed_file:
+            args += " {}".format(path.basename(seed_file))
         script.write("""universe = vanilla
 executable = run_singularity.sh
-arguments = {0} $(Process) {1} {2} {3} {4} {5}
-""".format(para_dict_["param_file"], para_dict_["n_events_per_job"],
-           para_dict_["n_threads"], random_seed, para_dict_["bayes_file"],
-           para_dict_["singularity_image_path"]))
+arguments = {0}
+""".format(args))
     else:
+        args = "{0} $(Process) {1} {2} {3}".format(
+            para_dict_["param_file"], para_dict_["n_events_per_job"],
+            para_dict_["n_threads"], random_seed)
+        if seed_file:
+            args += " {}".format(path.basename(seed_file))
         script.write("""universe = vanilla
 executable = run_singularity.sh
-arguments = {0} $(Process) {1} {2} {3} {4}
-""".format(para_dict_["param_file"], para_dict_["n_events_per_job"],
-           para_dict_["n_threads"], random_seed,
-           para_dict_["singularity_image_path"]))
+arguments = {0}
+""".format(args))
 
     script.write("""
 JobBatchName = {0}
@@ -172,15 +178,19 @@ printf "Working directory: ${SCRATCH_DIR}\\n"
 """)
     if seed_file:
         script.write("""
+seedfile="${6:-}"
 mkdir -p shared_seeds
-seed_base=$(basename "{0}")
-if [ -f "${{seed_base}}" ] && [ ! -f "shared_seeds/${{seed_base}}" ]; then
-    cp "${{seed_base}}" "shared_seeds/${{seed_base}}"
+seed_base=$(basename "${seedfile:-${parafile}}")
+if [ -n "${seedfile}" ] && [ -f "${seedfile}" ] && [ ! -f "shared_seeds/${seed_base}" ]; then
+    cp "${seedfile}" "shared_seeds/${seed_base}"
 fi
-if [ -f "{0}" ] && [ ! -f "shared_seeds/${{seed_base}}" ]; then
-    cp "{0}" "shared_seeds/${{seed_base}}"
+if [ -n "${seed_base}" ] && [ -f "${seed_base}" ] && [ ! -f "shared_seeds/${seed_base}" ]; then
+    cp "${seed_base}" "shared_seeds/${seed_base}"
 fi
-python3 - "${{parafile}}" "shared_seeds/${{seed_base}}" <<'PY'
+if [ ! -f "shared_seeds/${seed_base}" ] && [ -f "./${seed_base}" ]; then
+    cp "./${seed_base}" "shared_seeds/${seed_base}"
+fi
+python3 - "${parafile}" "shared_seeds/${seed_base}" <<'PY'
 from pathlib import Path
 import sys
 param_path = Path(sys.argv[1])
@@ -203,12 +213,21 @@ for marker in ["isobar_seed_file = ", "isobar_seed_file: ", "isobar_seed_file= "
     break
 if not updated:
     raise SystemExit("isobar_seed_file not found in parameter file")
+if not Path(seed_name).exists():
+    raise SystemExit(f"Seed file not found after copy: {seed_name}")
 param_path.write_text(text)
 PY
-""".format(seed_file))
+""")
 
     if para_dict_["bayesFlag"]:
         script.write("""bayesFile=$6
+seedfile="${7:-}"
+seed_name=$(basename "${seedfile:-}")
+
+if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ] && [ ! -f "./${seed_name}" ]; then
+    echo "Seed file missing from sandbox after transfer: ${seedfile:-<unset>}" >&2
+    exit 1
+fi
 
 /opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
 status=$?
@@ -219,6 +238,13 @@ fi
 """)
     else:
         script.write("""
+seedfile="${6:-}"
+seed_name=$(basename "${seedfile:-}")
+if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ] && [ ! -f "./${seed_name}" ]; then
+    echo "Seed file missing from sandbox after transfer: ${seedfile:-<unset>}" >&2
+    exit 1
+fi
+
 /opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
 status=$?
 if [ $status -ne 0 ]; then
