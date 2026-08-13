@@ -13,7 +13,8 @@ control_dict = {
 }
 
 # Shared pre-generated isobar seed file (required).
-isobar_seed_file = "shared_seeds/nucleon-seeds_197.hdf"
+# Use an absolute path here so OSG job sandboxes can resolve it reliably.
+isobar_seed_file = "/home/joaopaulo.picchetti/iEBE-MUSIC/shared_seeds/nucleon-seeds_197.hdf"
 
 # isobar-sample
 isobars_conf_dict_target = {
