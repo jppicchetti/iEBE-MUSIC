@@ -73,9 +73,10 @@ def write_submission_script_urqmd(para_dict_):
     seed_file = detect_seed_file(para_dict_["param_file"])
     script = open(FILENAME, "w")
 
+    param_basename = path.basename(para_dict_["param_file"])
     if para_dict_["bayesFlag"]:
         args = "{0} $(Process) {1} {2} {3} {4}".format(
-            para_dict_["param_file"], para_dict_["n_events_per_job"],
+            param_basename, para_dict_["n_events_per_job"],
             para_dict_["n_threads"], random_seed, para_dict_["bayes_file"])
         if seed_file:
             args += " {}".format(path.basename(seed_file))
@@ -85,7 +86,7 @@ arguments = {0}
 """.format(args))
     else:
         args = "{0} $(Process) {1} {2} {3}".format(
-            para_dict_["param_file"], para_dict_["n_events_per_job"],
+            param_basename, para_dict_["n_events_per_job"],
             para_dict_["n_threads"], random_seed)
         if seed_file:
             args += " {}".format(path.basename(seed_file))
@@ -168,6 +169,16 @@ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/gsl/2.5/x86
 
 SCRATCH_DIR="${PWD}"
 cd "${SCRATCH_DIR}"
+
+if [ ! -f "$(basename "${parafile}")" ] && [ -f "${parafile}" ]; then
+    cp "${parafile}" "$(basename "${parafile}")"
+fi
+if [ ! -f "$(basename "${parafile}")" ]; then
+    echo "Missing parameter file in scratch dir: ${parafile}" >&2
+    ls -la "${SCRATCH_DIR}" >&2 || true
+    exit 1
+fi
+parafile="$(basename "${parafile}")"
 
 printf "Start time: `/bin/date`\\n"
 printf "Job is running on node: `/bin/hostname`\\n"
