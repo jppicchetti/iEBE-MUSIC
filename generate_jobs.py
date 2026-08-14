@@ -1379,8 +1379,21 @@ def main():
 
         # If the provided file does not exist, fail early.
         if not path.exists(abs_seed):
-            print("\U0001F6AB  Specified isobar seed file not found:", abs_seed)
-            exit(1)
+            if cluster_name == "osg":
+                fallback_candidates = [
+                    path.join(path.dirname(path.abspath(args.par_dict)), seed_basename),
+                    path.join(path.abspath("."), seed_basename),
+                    path.join(path.abspath("."), "shared_seeds", seed_basename),
+                ]
+                for fallback_seed in fallback_candidates:
+                    if path.exists(fallback_seed):
+                        print("Using fallback isobar seed file:", fallback_seed)
+                        abs_seed = fallback_seed
+                        break
+
+            if not path.exists(abs_seed):
+                print("\U0001F6AB  Specified isobar seed file not found:", abs_seed)
+                exit(1)
 
         # make sure future code uses the absolute path
         isobar_seed_file = abs_seed
