@@ -198,6 +198,9 @@ if [ -n "${seedfile}" ] && [ -f "${seedfile}" ]; then
 else
     seed_source=$(find "${SCRATCH_DIR}" -name "${seed_base}" -type f -print -quit)
 fi
+echo "seedfile arg: ${seedfile:-<unset>}"
+echo "seed_base: ${seed_base}"
+echo "seed_source: ${seed_source:-<unset>}"
 if [ -z "${seed_source}" ] || [ ! -f "${seed_source}" ]; then
     echo "Seed file missing from sandbox after transfer: ${seedfile:-<unset>}" >&2
     ls -la "${SCRATCH_DIR}" >&2 || true
@@ -207,6 +210,10 @@ fi
 if [ ! -f "shared_seeds/${seed_base}" ]; then
     cp "${seed_source}" "shared_seeds/${seed_base}"
 fi
+echo "shared_seeds contents:"
+ls -la shared_seeds
+echo "rewritten parameter file seed line:"
+grep -n "isobar_seed_file" "${parafile}" || true
 python3 - "${parafile}" "shared_seeds/${seed_base}" <<'PY'
 from pathlib import Path
 import sys
