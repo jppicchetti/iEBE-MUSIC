@@ -297,6 +297,12 @@ status=$?
 if [ $status -ne 0 ]; then
     exit $status
 fi
+if [ ! -d "EVENT_RESULTS_${processId}" ]; then
+    echo "Missing final results directory: ${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}" >&2
+    ls -la "${SCRATCH_DIR}/playground/event_0" >&2 || true
+    find "${SCRATCH_DIR}/playground/event_0" -maxdepth 2 -type d | sort >&2 || true
+    exit 1
+fi
 tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
 status=$?
 if [ $status -ne 0 ]; then
