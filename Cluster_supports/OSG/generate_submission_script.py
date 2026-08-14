@@ -190,18 +190,16 @@ printf "Working directory: ${SCRATCH_DIR}\\n"
     if seed_file:
         script.write("""
 seedfile="${6:-}"
-mkdir -p shared_seeds
 seed_base=$(basename "${seedfile:-${parafile}}")
-if [ -n "${seedfile}" ] && [ -f "${seedfile}" ] && [ ! -f "shared_seeds/${seed_base}" ]; then
-    cp "${seedfile}" "shared_seeds/${seed_base}"
+if [ -n "${seedfile}" ] && [ -f "${seedfile}" ] && [ ! -f "${seed_base}" ]; then
+    cp "${seedfile}" "${seed_base}"
 fi
-if [ -n "${seed_base}" ] && [ -f "${seed_base}" ] && [ ! -f "shared_seeds/${seed_base}" ]; then
-    cp "${seed_base}" "shared_seeds/${seed_base}"
+if [ ! -f "${seed_base}" ]; then
+    echo "Seed file missing from sandbox after transfer: ${seedfile:-<unset>}" >&2
+    ls -la "${SCRATCH_DIR}" >&2 || true
+    exit 1
 fi
-if [ ! -f "shared_seeds/${seed_base}" ] && [ -f "./${seed_base}" ]; then
-    cp "./${seed_base}" "shared_seeds/${seed_base}"
-fi
-python3 - "${parafile}" "shared_seeds/${seed_base}" <<'PY'
+python3 - "${parafile}" "${seed_base}" <<'PY'
 from pathlib import Path
 import sys
 param_path = Path(sys.argv[1])
@@ -235,7 +233,7 @@ PY
 seedfile="${7:-}"
 seed_name=$(basename "${seedfile:-}")
 
-if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ] && [ ! -f "./${seed_name}" ]; then
+if [ -n "${seed_name}" ] && [ ! -f "${seed_name}" ]; then
     echo "Seed file missing from sandbox after transfer: ${seedfile:-<unset>}" >&2
     exit 1
 fi
@@ -251,7 +249,7 @@ fi
         script.write("""
 seedfile="${6:-}"
 seed_name=$(basename "${seedfile:-}")
-if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ] && [ ! -f "./${seed_name}" ]; then
+if [ -n "${seed_name}" ] && [ ! -f "${seed_name}" ]; then
     echo "Seed file missing from sandbox after transfer: ${seedfile:-<unset>}" >&2
     exit 1
 fi
