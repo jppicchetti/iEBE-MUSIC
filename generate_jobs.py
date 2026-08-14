@@ -1385,7 +1385,14 @@ def main():
                     path.join(path.abspath("."), seed_basename),
                     path.join(path.abspath("."), "shared_seeds", seed_basename),
                 ]
+                print("OSG seed lookup diagnostics:")
+                print("  working_directory:", path.abspath("."))
+                print("  param_file:", path.abspath(args.par_dict))
+                print("  requested_seed:", isobar_seed_file)
+                print("  abs_seed:", abs_seed)
+                print("  candidate_paths:")
                 for fallback_seed in fallback_candidates:
+                    print("   -", fallback_seed, "exists=", path.exists(fallback_seed))
                     if path.exists(fallback_seed):
                         print("Using fallback isobar seed file:", fallback_seed)
                         abs_seed = fallback_seed
