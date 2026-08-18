@@ -64,14 +64,27 @@ def detect_seed_file(param_file):
     return None
 
 
+def normalize_singularity_image_path(image_path):
+    """Expand environment variables and return a valid OSDF image URL."""
+    expanded_path = path.expandvars(image_path)
+    if "$" in expanded_path:
+        raise ValueError(
+            "Unexpanded variable in singularity image path: {}".format(
+                image_path))
+    if expanded_path.startswith("osdf://"):
+        return expanded_path
+    return "osdf://{}".format(expanded_path)
+
+
 # ── UrQMD mode (original logic) ──────────────────────────────────────────────
 
 def write_submission_script_urqmd(para_dict_):
     jobName = "iEBEMUSIC_{}".format(para_dict_["job_name"])
     random_seed = random.SystemRandom().randint(0, 10000000)
-    imagePathHeader = "osdf://"
     seed_file = detect_seed_file(para_dict_["param_file"])
     script = open(FILENAME, "w")
+    singularity_image_url = normalize_singularity_image_path(
+        para_dict_["singularity_image_path"])
 
     param_basename = path.basename(para_dict_["param_file"])
     if para_dict_["bayesFlag"]:
@@ -103,7 +116,7 @@ WhenToTransferOutput = ON_EXIT
 
 +SingularityImage = "{1}"
 Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTransferPluginMethods)
-""".format(jobName, imagePathHeader + para_dict_["singularity_image_path"]))
+""".format(jobName, singularity_image_url))
 
     input_files = [para_dict_['param_file']]
     if para_dict_['bayesFlag']:
