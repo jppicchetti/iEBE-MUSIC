@@ -320,21 +320,29 @@ if [ ! -f "submit_job.script" ]; then
     ls -la >&2
     exit 1
 fi
+
+archive_event_results() {
+    if [ -d "EVENT_RESULTS_${processId}" ] && [ ! -f "EVENT_RESULTS_${processId}.tar.gz" ]; then
+        tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
+    elif [ ! -f "EVENT_RESULTS_${processId}.tar.gz" ]; then
+        tar -czf EVENT_RESULTS_${processId}.tar.gz --exclude="EVENT_RESULTS_${processId}.tar.gz" .
+    fi
+}
+
+trap archive_event_results EXIT
+
 bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
     echo "submit_job.script failed with exit code ${status}" >&2
-    tar -czf EVENT_RESULTS_${processId}.tar.gz --exclude="EVENT_RESULTS_${processId}.tar.gz" .
     exit $status
 fi
 if [ ! -d "EVENT_RESULTS_${processId}" ]; then
     echo "Missing final results directory: ${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}" >&2
     ls -la "${SCRATCH_DIR}/playground/event_0" >&2 || true
     find "${SCRATCH_DIR}/playground/event_0" -maxdepth 2 -type d | sort >&2 || true
-    tar -czf EVENT_RESULTS_${processId}.tar.gz --exclude="EVENT_RESULTS_${processId}.tar.gz" .
     exit 1
 fi
-tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
@@ -534,14 +542,23 @@ if [ ! -f "submit_job.script" ]; then
     ls -la >&2
     exit 1
 fi
+
+archive_event_results() {
+    if [ -d "EVENT_RESULTS_${processId}" ] && [ ! -f "EVENT_RESULTS_${processId}.tar.gz" ]; then
+        tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
+    elif [ ! -f "EVENT_RESULTS_${processId}.tar.gz" ]; then
+        tar -czf EVENT_RESULTS_${processId}.tar.gz --exclude="EVENT_RESULTS_${processId}.tar.gz" .
+    fi
+}
+
+trap archive_event_results EXIT
+
 bash submit_job.script
 status=$?
 if [ $status -ne 0 ]; then
     echo "submit_job.script failed with exit code ${status}" >&2
-    tar -czf EVENT_RESULTS_${processId}.tar.gz --exclude="EVENT_RESULTS_${processId}.tar.gz" .
     exit $status
 fi
-tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
