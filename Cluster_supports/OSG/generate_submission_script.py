@@ -190,6 +190,22 @@ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/gsl/2.5/x86
 
 SCRATCH_DIR="${PWD}"
 cd "${SCRATCH_DIR}"
+export HOME="${SCRATCH_DIR}"
+export XDG_DATA_HOME="${HOME}/.local/share"
+export XDG_CACHE_HOME="${HOME}/.cache"
+export TRENTO_CACHE="${HOME}/.trento"
+mkdir -p "${XDG_DATA_HOME}"
+mkdir -p "${XDG_CACHE_HOME}"
+mkdir -p "${TRENTO_CACHE}"
+mkdir -p "${XDG_DATA_HOME}/trento"
+export HOME="${SCRATCH_DIR}"
+export XDG_DATA_HOME="${HOME}/.local/share"
+export XDG_CACHE_HOME="${HOME}/.cache"
+export TRENTO_CACHE="${HOME}/.trento"
+mkdir -p "${XDG_DATA_HOME}"
+mkdir -p "${XDG_CACHE_HOME}"
+mkdir -p "${TRENTO_CACHE}"
+mkdir -p "${XDG_DATA_HOME}/trento"
 
 if [ ! -f "$(basename "${parafile}")" ] && [ -f "${parafile}" ]; then
     cp "${parafile}" "$(basename "${parafile}")"
