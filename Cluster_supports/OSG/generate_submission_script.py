@@ -4,6 +4,7 @@
 
 import re
 import sys
+import shutil
 from os import path, makedirs, getcwd, chmod
 import argparse
 import random
@@ -85,6 +86,13 @@ def write_submission_script_urqmd(para_dict_):
     script = open(FILENAME, "w")
     singularity_image_url = normalize_singularity_image_path(
         para_dict_["singularity_image_path"])
+    transfer_seed_file = None
+    if seed_file:
+        transfer_seed_file = path.basename(seed_file)
+        local_seed_file = path.join(getcwd(), transfer_seed_file)
+        if path.abspath(seed_file) != path.abspath(local_seed_file):
+            shutil.copy2(seed_file, local_seed_file)
+        seed_file = local_seed_file
 
     param_basename = path.basename(para_dict_["param_file"])
     if para_dict_["bayesFlag"]:
@@ -122,7 +130,7 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
     if para_dict_['bayesFlag']:
         input_files.append(para_dict_['bayes_file'])
     if seed_file:
-        input_files.append(seed_file)
+        input_files.append(transfer_seed_file)
     script.write("\ntransfer_input_files = {}\n".format(
         ", ".join(input_files)))
 
