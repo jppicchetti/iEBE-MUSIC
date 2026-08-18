@@ -247,7 +247,7 @@ for marker in ["isobar_seed_file = ", "isobar_seed_file: ", "isobar_seed_file= "
     if idx < 0:
         continue
     start = idx + len(marker)
-    end = text.find("\n", start)
+    end = text.find("\\n", start)
     if end < 0:
         end = len(text)
     quote = text[start] if start < len(text) and text[start] in ('"', "'") else '"'
