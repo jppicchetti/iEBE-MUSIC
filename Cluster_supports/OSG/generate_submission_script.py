@@ -14,7 +14,7 @@ FILENAME = "singularity.submit"
 
 def find_repo_root():
     """Find the iEBE-MUSIC repository root by looking for known markers."""
-    current = path.abspath(".")
+    current = path.abspath(path.join(path.dirname(__file__), "..", ".."))
     while current != path.dirname(current):
         if (path.exists(path.join(current, "README.md")) and
                 path.exists(path.join(current, "config")) and
