@@ -290,7 +290,7 @@ def generate_script_trento(folder_name, nthreads, trento_output, event_id):
         folder_name: event folder path
         nthreads: number of threads
         trento_output: output filename for initial condition
-        event_id: event index (TRENTo random seed is event_id + 1)
+        event_id: event index used only during folder generation
     """
     
     working_folder = folder_name
@@ -302,7 +302,7 @@ def generate_script_trento(folder_name, nthreads, trento_output, event_id):
 
 results_folder={0:s}
 evid=$1
-trento_seed={1:d}
+trento_seed=$evid
 
  (
 cd TRENTo
@@ -310,7 +310,7 @@ cd TRENTo
 mkdir -p $results_folder
 rm -fr $results_folder/*
 rm -fr nuclei_target nuclei_projectile
-""".format(results_folder, event_id + 1))
+""".format(results_folder))
     
     
     if nthreads > 0:
