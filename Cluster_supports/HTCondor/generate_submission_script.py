@@ -208,6 +208,7 @@ parafile=$1
 processId=$2
 nHydroEvents=$3
 nthreads=$4
+nUrqmdSamples=__NURQMD_SAMPLES__
 seed=$5
 
 export PYTHONIOENCODING=utf-8
@@ -252,7 +253,7 @@ printf "Job is running on node: `/bin/hostname`\\n"
 printf "system kernel: `uname -r`\\n"
 printf "Job running as user: `/usr/bin/id`\\n"
 
-""")
+""".replace("__NURQMD_SAMPLES__", str(para_dict_["n_urqmd_per_hydro"])))
     if para_dict_["bayesFlag"]:
         script.write("bayesFile=$6\n")
 
@@ -268,14 +269,14 @@ printf "Job running as user: `/usr/bin/id`\\n"
             'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} -id ${processId} -n_th ${nthreads} "
-            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
+            "-n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} "
             "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
         script.write(
             'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} -id ${processId} -n_th ${nthreads} "
-            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
+            "-n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} "
             "--nocopy --continueFlag\n")
 
     script.write("""
@@ -392,6 +393,7 @@ parafile=$1
 processId=$2
 nHydroEvents=$3
 nthreads=$4
+nUrqmdSamples=__NURQMD_SAMPLES__
 seed=$5
 
 export PYTHONIOENCODING=utf-8
@@ -436,7 +438,7 @@ echo "XDG_CACHE_HOME=${XDG_CACHE_HOME}"
 echo "TRENTO_CACHE=${TRENTO_CACHE}"
 echo "==========================="
 
-""")
+""".replace("__NURQMD_SAMPLES__", str(para_dict_["n_urqmd_per_hydro"])))
 
     if para_dict_["bayesFlag"]:
         script.write("bayesFile=$6\n")
@@ -460,14 +462,14 @@ echo "==========================="
             'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
-            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
+            "-n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} "
             "-b ${bayesFile} --nocopy --continueFlag\n")
     else:
         script.write(
             'singularity exec --bind "${SCRATCH_DIR}:${SCRATCH_DIR}" "${SIF}" '
             "/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG "
             "-par ${parafile} ${SEED_ARG} -id ${processId} -n_th ${nthreads} "
-            "-n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} "
+            "-n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} "
             "--nocopy --continueFlag\n")
 
     script.write("""
@@ -512,6 +514,9 @@ if __name__ == "__main__":
                         default=1, help='number of events per job')
     parser.add_argument('-nth', '--n_threads', metavar='', type=int, default=1,
                         help='number of threads per job')
+    parser.add_argument('-nurqmd', '--n_urqmd_per_hydro', metavar='', type=int,
+                        default=None,
+                        help='number of UrQMD samples per hydro event')
     parser.add_argument('-singularity', '--singularity_image_path', metavar='',
                         type=str, default="",
                         help='absolute path to the .sif Singularity image '
@@ -533,6 +538,8 @@ if __name__ == "__main__":
         exit(0)
 
     para_dict = vars(parser.parse_args())
+    if para_dict["n_urqmd_per_hydro"] is None:
+        para_dict["n_urqmd_per_hydro"] = para_dict["n_threads"]
     para_dict["bayesFlag"] = para_dict["bayes_file"] != ""
 
     main(para_dict)

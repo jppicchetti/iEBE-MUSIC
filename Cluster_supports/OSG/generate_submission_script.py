@@ -207,6 +207,7 @@ parafile=$1
 processId=$2
 nHydroEvents=$3
 nthreads=$4
+nUrqmdSamples=__NURQMD_SAMPLES__
 seed=$5
 
 export PYTHONIOENCODING=utf-8
@@ -248,7 +249,7 @@ printf "system kernel: `uname -r`\\n"
 printf "Job running as user: `/usr/bin/id`\\n"
 printf "Working directory: ${SCRATCH_DIR}\\n"
 
-""")
+""".replace("__NURQMD_SAMPLES__", str(para_dict_["n_urqmd_per_hydro"])))
     if seed_file:
         script.write("""
 seedfile="${6:-}"
@@ -319,7 +320,7 @@ if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ]; then
     exit 1
 fi
 
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
 status=$?
 if [ $status -ne 0 ]; then
     echo "generate_jobs.py failed with exit code ${status}" >&2
@@ -339,7 +340,7 @@ if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ]; then
     exit 1
 fi
 
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
 status=$?
 if [ $status -ne 0 ]; then
     echo "generate_jobs.py failed with exit code ${status}" >&2
@@ -499,6 +500,7 @@ parafile=$1
 processId=$2
 nHydroEvents=$3
 nthreads=$4
+nUrqmdSamples=__NURQMD_SAMPLES__
 seed=$5
 
 export PYTHONIOENCODING=utf-8
@@ -547,7 +549,7 @@ echo "XDG_CACHE_HOME=${XDG_CACHE_HOME}"
 echo "TRENTO_CACHE=${TRENTO_CACHE}"
 echo "==========================="
 
-""")
+""".replace("__NURQMD_SAMPLES__", str(para_dict_["n_urqmd_per_hydro"])))
 
     if para_dict_["bayesFlag"]:
         script.write("bayesFile=$6\n")
@@ -564,7 +566,7 @@ echo "==========================="
 
     if para_dict_["bayesFlag"]:
         script.write("""
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
 status=$?
 if [ $status -ne 0 ]; then
     echo "generate_jobs.py failed with exit code ${status}" >&2
@@ -573,7 +575,7 @@ fi
 """)
     else:
         script.write("""
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
 status=$?
 if [ $status -ne 0 ]; then
     echo "generate_jobs.py failed with exit code ${status}" >&2
@@ -650,6 +652,9 @@ if __name__ == "__main__":
                         default=1, help='number of events per job')
     parser.add_argument('-nth', '--n_threads', metavar='', type=int, default=1,
                         help='number of threads per job')
+    parser.add_argument('-nurqmd', '--n_urqmd_per_hydro', metavar='', type=int,
+                        default=None,
+                        help='number of UrQMD samples per hydro event')
     parser.add_argument('-singularity', '--singularity_image_path', metavar='',
                         type=str, default="", help='singularity image path')
     parser.add_argument('-param', '--param_file', metavar='', type=str,
@@ -669,6 +674,8 @@ if __name__ == "__main__":
         exit(0)
 
     para_dict = vars(parser.parse_args())
+    if para_dict["n_urqmd_per_hydro"] is None:
+        para_dict["n_urqmd_per_hydro"] = para_dict["n_threads"]
     para_dict["bayesFlag"] = para_dict["bayes_file"] != ""
 
     main(para_dict)
