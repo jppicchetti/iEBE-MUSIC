@@ -10,6 +10,7 @@ import sys
 import time
 import shutil
 import re
+import json
 import h5py
 import numpy as np
 import freestream
@@ -145,6 +146,8 @@ def get_initial_condition(database, initial_type, iev, event_id, seed_add,
         else:
             print("TRENTo event exists ...")
             print("No need to rerun ...")
+
+        write_trento_event_summary(res_path, final_results_folder)
             
         connect_trento_event(res_path, initial_type, file_name,
                              para_dict['free_stream_tau'],
@@ -255,6 +258,46 @@ def collect_trento_event(final_results_folder):
     if path.exists(final_results_folder):
         shutil.rmtree(final_results_folder)
     shutil.move("TRENTo/trento_results", final_results_folder)
+
+
+def write_trento_event_summary(trento_results_folder, final_results_folder):
+    """Write a compact text summary for quiet-mode output transfer."""
+    impact_parameter = None
+    mult = None
+
+    metadata_file = path.join(trento_results_folder, "sampling_metadata.json")
+    if path.exists(metadata_file):
+        try:
+            with open(metadata_file, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+            impact_parameter = metadata.get("impact_parameter", impact_parameter)
+            mult = metadata.get("mult", mult)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    run_log = path.join(trento_results_folder, "run.log")
+    if path.exists(run_log):
+        try:
+            with open(run_log, "r", encoding="utf-8") as f:
+                for line in f:
+                    if impact_parameter is None and line.startswith("impact_parameter "):
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            impact_parameter = float(parts[1])
+                    if mult is None and line.startswith("mult "):
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            mult = float(parts[1])
+                    if impact_parameter is not None and mult is not None:
+                        break
+        except (OSError, ValueError):
+            pass
+
+    summary_path = path.join(final_results_folder, "trento_event_summary.txt")
+    with open(summary_path, "w", encoding="utf-8") as f:
+        f.write("impact_parameter {}\n".format(
+            "nan" if impact_parameter is None else impact_parameter))
+        f.write("mult {}\n".format("nan" if mult is None else mult))
     
     
 def connect_trento_event(res_path, initial_type, filename,

@@ -41,6 +41,19 @@ def detect_afterburner(param_file):
     return "UrQMD"
 
 
+def detect_initial_state_type(param_file):
+    """Return control_dict initial_state_type string from parameter file."""
+    try:
+        with open(param_file, 'r') as f:
+            content = f.read()
+        m = re.search(r"['\"]initial_state_type['\"]\s*:\s*['\"]([^'\"]+)['\"]", content)
+        if m:
+            return m.group(1)
+    except Exception:
+        pass
+    return ""
+
+
 def detect_seed_files(param_file):
     """Extract isobar_seed_file path from parameter file and resolve it.
     
@@ -139,12 +152,19 @@ WhenToTransferOutput = ON_EXIT
     script.write(
         "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
 
+    initial_state_type = detect_initial_state_type(para_dict_["param_file"])
+
     if para_dict_.get("output_mode", "quiet") == "verbose":
         transfer_output = "playground/event_0/EVENT_RESULTS_$(Process)"
     else:
-        transfer_output = (
+        quiet_outputs = [
             "playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5"
-        )
+        ]
+        if initial_state_type == "TRENTo":
+            quiet_outputs.append(
+                "playground/event_0/EVENT_RESULTS_$(Process)/trento_event_summary.txt"
+            )
+        transfer_output = ", ".join(quiet_outputs)
 
     script.write("""
 transfer_output_files = {3}
@@ -316,12 +336,19 @@ WhenToTransferOutput = ON_EXIT
     input_files.append(sif)
     script.write("\ntransfer_input_files = {}\n".format(", ".join(input_files)))
 
+    initial_state_type = detect_initial_state_type(para_dict_["param_file"])
+
     if para_dict_.get("output_mode", "quiet") == "verbose":
         transfer_output = "playground/event_0/EVENT_RESULTS_$(Process)"
     else:
-        transfer_output = (
+        quiet_outputs = [
             "playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5"
-        )
+        ]
+        if initial_state_type == "TRENTo":
+            quiet_outputs.append(
+                "playground/event_0/EVENT_RESULTS_$(Process)/trento_event_summary.txt"
+            )
+        transfer_output = ", ".join(quiet_outputs)
 
     script.write("""
 transfer_output_files = {3}
