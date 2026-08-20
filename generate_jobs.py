@@ -1195,8 +1195,7 @@ def main():
         print("\U000026A0  "
               + "Warning: n_threads = {} < n_urqmd_per_hydro = {}!".format(
                   n_threads, n_urqmd_per_hydro))
-        print("reset n_threads to {}".format(n_urqmd_per_hydro))
-        n_threads = n_urqmd_per_hydro
+        print("Will run UrQMD in parallel batches capped by n_threads.")
 
     if event_end_id >= 0 and event_end_id < event_start_id:
         print("\U0001F6AB  event_end_id must be >= event_start_id")

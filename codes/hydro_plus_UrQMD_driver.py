@@ -517,7 +517,7 @@ def run_urqmd_event(event_id):
 
 def run_urqmd_shell(n_urqmd, final_results_folder, event_id, para_dict,
                     startTime, checkPointFileName, afterburner_type):
-    """This function runs hadronic afterburner events in parallel"""
+    """This function runs hadronic afterburner events in parallel batches."""
     logo = "\U0001F5FF"
     sub_ev_prefix = "SMASHev" if afterburner_type == "SMASH" else "UrQMDev"
     results_dir = "SMASH_results" if afterburner_type == "SMASH" else "UrQMD_results"
@@ -549,10 +549,13 @@ def run_urqmd_shell(n_urqmd, final_results_folder, event_id, para_dict,
                     checkPoint(startTime, checkPointFileName,
                                final_results_folder)
 
-        print("{}  [{}] Running afterburner ... ".format(logo, curr_time),
-              flush=True)
-        with Pool(processes=n_urqmd) as pool1:
-            pool1.map(run_urqmd_event, range(n_urqmd))
+                max_workers = max(1, int(para_dict.get("num_threads", 1)))
+                n_workers = max(1, min(n_urqmd, max_workers))
+                print("{}  [{}] Running afterburner with {} workers for {} samples ... ".format(
+                        logo, curr_time, n_workers, n_urqmd),
+                            flush=True)
+                with Pool(processes=n_workers) as pool1:
+                        pool1.map(run_urqmd_event, range(n_urqmd))
 
         urqmdResFile = "particle_list.bin"
         for iev in range(1, n_urqmd):
