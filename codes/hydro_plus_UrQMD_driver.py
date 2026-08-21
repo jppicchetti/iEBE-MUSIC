@@ -549,25 +549,34 @@ def run_urqmd_shell(n_urqmd, final_results_folder, event_id, para_dict,
                     checkPoint(startTime, checkPointFileName,
                                final_results_folder)
 
-                max_workers = max(1, int(para_dict.get("num_threads", 1)))
-                n_workers = max(1, min(n_urqmd, max_workers))
-                print("{}  [{}] Running afterburner with {} workers for {} samples ... ".format(
-                        logo, curr_time, n_workers, n_urqmd),
-                            flush=True)
-                with Pool(processes=n_workers) as pool1:
-                        pool1.map(run_urqmd_event, range(n_urqmd))
+        max_workers = max(1, int(para_dict.get("num_threads", 1)))
+        n_workers = max(1, min(n_urqmd, max_workers))
+        print("{}  [{}] Running afterburner with {} workers for {} samples ... ".format(
+                logo, curr_time, n_workers, n_urqmd),
+              flush=True)
+        with Pool(processes=n_workers) as pool1:
+            pool1.map(run_urqmd_event, range(n_urqmd))
 
         urqmdResFile = "particle_list.bin"
         for iev in range(1, n_urqmd):
-            call("cat {0}_{1}/{2}/{3} >> {0}_0/{2}/{3}".format(
-                     sub_ev_prefix, iev, results_dir, urqmdResFile),
+            source_file = "{0}_{1}/{2}/{3}".format(
+                sub_ev_prefix, iev, results_dir, urqmdResFile)
+            if not path.exists(source_file):
+                raise FileNotFoundError(
+                    f"Missing UrQMD output file: {source_file}. "
+                    "Check run_afterburner.sh / iSS / OSCAR / UrQMD logs.")
+            call("cat {0} >> {1}_0/{2}/{3}".format(
+                     source_file, sub_ev_prefix, results_dir, urqmdResFile),
                  shell=True)
-            remove("{0}_{1}/{2}/{3}".format(sub_ev_prefix, iev, results_dir,
-                                            urqmdResFile))
+            remove(source_file)
         urqmd_success = True
-        shutil.move("{0}_0/{1}/{2}".format(sub_ev_prefix, results_dir,
-                                           urqmdResFile),
-                    results_folder)
+        primary_file = "{0}_0/{1}/{2}".format(sub_ev_prefix, results_dir,
+                                              urqmdResFile)
+        if not path.exists(primary_file):
+            raise FileNotFoundError(
+                f"Missing primary UrQMD output file: {primary_file}. "
+                "Check the first afterburner subevent logs.")
+        shutil.move(primary_file, results_folder)
 
     return (urqmd_success, results_folder)
 
