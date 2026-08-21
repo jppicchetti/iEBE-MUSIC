@@ -236,7 +236,7 @@ mkdir -p "${XDG_DATA_HOME}/trento"
 mkdir -p "${SEED_DIR}"
 
 # HTCondor transfers seed files with relative paths; copy them into shared_seeds/
-# if they're in a subdirectory (e.g., shared_seeds/nucleon-seeds_197.hdf)
+# if they're in a subdirectory (e.g., shared_seeds/nucleon-seeds_96.hdf)
 for seed_hdf in *.hdf; do
     if [ -f "${jobdir}/${seed_hdf}" ] && [ ! -f "${SEED_DIR}/${seed_hdf}" ]; then
         cp "${jobdir}/${seed_hdf}" "${SEED_DIR}/${seed_hdf}"

@@ -13,7 +13,7 @@ control_dict = {
 }
 
 # Shared pre-generated isobar seed file (required).
-isobar_seed_file = "shared_seeds/nucleon-seeds_197.hdf"
+isobar_seed_file = "shared_seeds/nucleon-seeds_96.hdf"
 
 # isobar-sample
 isobars_conf_dict_target = {
@@ -29,7 +29,7 @@ isobars_conf_dict_target = {
         },
         "seeds_file": {
             "description": "Input file with list of seeds for nucleon positions.",
-            "filename": "nucleon-seeds_197.hdf",
+            "filename": "nucleon-seeds_96.hdf",
         },
         "output_path": {
             "description": "Output directory where to save",
