@@ -99,6 +99,8 @@ def write_submission_script_urqmd(para_dict_):
     script = open(FILENAME, "w")
     singularity_image_url = normalize_singularity_image_path(
         para_dict_["singularity_image_path"])
+    home_log_dir = path.join(path.expanduser("~"), "log")
+    makedirs(home_log_dir, exist_ok=True)
     transfer_seed_file = None
     if seed_file:
         transfer_seed_file = path.basename(seed_file)
@@ -167,9 +169,9 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
     script.write("""
 transfer_output_files = {3}
 
-error = log/job.$(Cluster).$(Process).error
-output = log/job.$(Cluster).$(Process).output
-log = log/job.$(Cluster).$(Process).log
+error = {4}/job.$(Cluster).$(Process).error
+output = {4}/job.$(Cluster).$(Process).output
+log = {4}/job.$(Cluster).$(Process).log
 
 #+JobDurationCategory = "Long"
 max_idle = 1000
@@ -193,7 +195,7 @@ request_disk = 2 GB
 
 # Queue one job with the above specifications.
 queue {2:d}""".format(para_dict_["n_threads"], para_dict_["memory_per_job"],
-                      para_dict_["n_jobs"], transfer_output))
+                      para_dict_["n_jobs"], transfer_output, home_log_dir))
     script.close()
 
 
@@ -402,6 +404,8 @@ def write_submission_script_smash(para_dict_):
     imagePathHeader = "osdf://"
     seed_file = detect_seed_file(para_dict_["param_file"])
     script = open(FILENAME, "w")
+    home_log_dir = path.join(path.expanduser("~"), "log")
+    makedirs(home_log_dir, exist_ok=True)
 
     # Build arguments: param_file $(Process) n_events n_threads seed [bayes_file] [seed_file]
     if para_dict_["bayesFlag"]:
@@ -457,9 +461,9 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
     script.write("""
 transfer_output_files = {3}
 
-error = log/job.$(Cluster).$(Process).error
-output = log/job.$(Cluster).$(Process).output
-log = log/job.$(Cluster).$(Process).log
+error = {4}/job.$(Cluster).$(Process).error
+output = {4}/job.$(Cluster).$(Process).output
+log = {4}/job.$(Cluster).$(Process).log
 
 #+JobDurationCategory = "Long"
 max_idle = 1000
@@ -483,7 +487,7 @@ request_disk = 2 GB
 
 # Queue one job with the above specifications.
 queue {2:d}""".format(para_dict_["n_threads"], para_dict_["memory_per_job"],
-                      para_dict_["n_jobs"], transfer_output))
+                      para_dict_["n_jobs"], transfer_output, home_log_dir))
     script.close()
 
 
