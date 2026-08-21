@@ -33,7 +33,7 @@ echo -e "${Green}compile TRENTo ... ${NC}"
     rm -fr build
     mkdir -p build
     cd build
-    cmake ..
+    cmake .. -DNATIVE=OFF
     make -j${number_of_cores_to_compile}
     make install
 )
