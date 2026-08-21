@@ -33,7 +33,7 @@ isobars_conf_dict_target = {
         },
         "output_path": {
             "description": "Output directory where to save",
-            "dirname": "nucleus_target",
+            "dirname": "nuclei_target",
         },
         "number_of_parallel_processes": {
             "description": "Number of processes to compute in parallel.",
@@ -72,7 +72,7 @@ isobars_conf_dict_projectile = {
         },
         "output_path": {
             "description": "Output directory where to save",
-            "dirname": "nucleus_projectile",
+            "dirname": "nuclei_projectile",
         },
         "number_of_parallel_processes": {
             "description": "Number of processes to compute in parallel.",
@@ -96,7 +96,7 @@ isobars_conf_dict_projectile = {
 
 trento_dict = {
     'type': "self",
-    'projectile': ['nucleus_target/target.hdf', 'nucleus_projectile/projectile.hdf'],
+    'projectile': ['nuclei_target/target.hdf', 'nuclei_projectile/projectile.hdf'],
     'number-events': 1,
     'quiet': False,
     'output': 'initial_condition',
