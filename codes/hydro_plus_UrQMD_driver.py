@@ -265,8 +265,24 @@ def write_trento_event_summary(trento_results_folder, final_results_folder):
     impact_parameter = None
     mult = None
 
+    event_output_files = sorted(
+        glob(path.join(trento_results_folder, "**", "0.dat"), recursive=True))
+    if event_output_files:
+        try:
+            with open(event_output_files[0], "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if impact_parameter is None and stripped.startswith("# b"):
+                        impact_parameter = float(stripped.split("=", 1)[1])
+                    elif mult is None and stripped.startswith("# mult"):
+                        mult = float(stripped.split("=", 1)[1])
+                    if impact_parameter is not None and mult is not None:
+                        break
+        except (OSError, ValueError, IndexError):
+            pass
+
     metadata_file = path.join(trento_results_folder, "sampling_metadata.json")
-    if path.exists(metadata_file):
+    if path.exists(metadata_file) and (impact_parameter is None or mult is None):
         try:
             with open(metadata_file, "r", encoding="utf-8") as f:
                 metadata = json.load(f)
@@ -276,7 +292,7 @@ def write_trento_event_summary(trento_results_folder, final_results_folder):
             pass
 
     run_log = path.join(trento_results_folder, "run.log")
-    if path.exists(run_log):
+    if path.exists(run_log) and (impact_parameter is None or mult is None):
         try:
             with open(run_log, "r", encoding="utf-8") as f:
                 for line in f:
