@@ -162,7 +162,7 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
         ]
         if initial_state_type == "TRENTo":
             quiet_outputs.append(
-                "playground/event_0/EVENT_RESULTS_$(Process)/trento_event_summary.txt"
+                "playground/event_0/EVENT_RESULTS_$(Process)/trento_event_summary_$(Process).txt"
             )
         transfer_output = ", ".join(quiet_outputs)
 

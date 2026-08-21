@@ -147,7 +147,7 @@ def get_initial_condition(database, initial_type, iev, event_id, seed_add,
             print("TRENTo event exists ...")
             print("No need to rerun ...")
 
-        write_trento_event_summary(res_path, final_results_folder)
+        write_trento_event_summary(res_path, final_results_folder, event_id)
             
         connect_trento_event(res_path, initial_type, file_name,
                              para_dict['free_stream_tau'],
@@ -260,7 +260,8 @@ def collect_trento_event(final_results_folder):
     shutil.move("TRENTo/trento_results", final_results_folder)
 
 
-def write_trento_event_summary(trento_results_folder, final_results_folder):
+def write_trento_event_summary(trento_results_folder, final_results_folder,
+                               event_id):
     """Write a compact text summary for quiet-mode output transfer."""
     impact_parameter = None
     mult = None
@@ -309,7 +310,8 @@ def write_trento_event_summary(trento_results_folder, final_results_folder):
         except (OSError, ValueError):
             pass
 
-    summary_path = path.join(final_results_folder, "trento_event_summary.txt")
+    summary_path = path.join(
+        final_results_folder, f"trento_event_summary_{event_id}.txt")
     with open(summary_path, "w", encoding="utf-8") as f:
         f.write("impact_parameter {}\n".format(
             "nan" if impact_parameter is None else impact_parameter))
