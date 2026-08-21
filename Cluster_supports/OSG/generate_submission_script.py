@@ -668,7 +668,7 @@ if __name__ == "__main__":
     parser.add_argument('-bayes', '--bayes_file', metavar='', type=str,
                         default="", help='bayes file')
     parser.add_argument('-mem', '--memory_per_job', metavar='', type=int,
-                        default=2, help='memory per job (GB)')
+                        default=4, help='memory per job (GB)')
     parser.add_argument('-output_mode', '--output_mode', metavar='', type=str,
                         default='quiet', choices=['quiet', 'verbose'],
                         help='output transfer mode: quiet=spvn only, verbose=full EVENT_RESULTS')
