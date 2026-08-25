@@ -258,6 +258,27 @@ def collect_trento_event(final_results_folder):
     if path.exists(final_results_folder):
         shutil.rmtree(final_results_folder)
     shutil.move("TRENTo/trento_results", final_results_folder)
+    # Low-risk cleanup: remove per-event isobar seed symlinks left in
+    # the event folder to save disk space. Only remove symlinks (not
+    # the shared master seed file) and be tolerant of any errors.
+    try:
+        event_root = path.dirname(path.abspath(final_results_folder))
+        isobar_parent = path.join(event_root, "TRENTo")
+        # look for both the numbered and legacy seed filenames
+        patterns = ("Isobar-Sampler_*",)
+        for sub in glob(path.join(isobar_parent, "Isobar-Sampler_*")):
+            for seed_pattern in ("nucleon-seeds_*.hdf", "nucleon-seeds.hdf"):
+                for seed_path in glob(path.join(sub, seed_pattern)):
+                    try:
+                        if path.islink(seed_path):
+                            remove(seed_path)
+                            print(f"Removed per-event seed symlink: {seed_path}")
+                    except OSError:
+                        # ignore failures to remove individual links
+                        pass
+    except Exception:
+        # never fail the run because cleanup couldn't complete
+        pass
 
 
 def write_trento_event_summary(trento_results_folder, final_results_folder,
