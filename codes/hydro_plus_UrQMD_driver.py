@@ -1102,6 +1102,23 @@ def main(para_dict_):
     if exitErrorTrigger:
         sys.exit(73)
 
+    # Final cleanup: remove any top-level per-job copies of isobar seed files
+    # left in the current working directory (e.g., TestDP0). Do not remove
+    # the canonical copy under `shared_seeds`.
+    try:
+        cwd = path.abspath('.')
+        for seed_pattern in ("nucleon-seeds_*.hdf", "nucleon-seeds.hdf"):
+            for seed_path in glob(path.join(cwd, seed_pattern)):
+                try:
+                    if "/shared_seeds/" in path.abspath(seed_path).replace('\\\\', '/'):
+                        continue
+                    remove(seed_path)
+                    print(f"Removed top-level seed file: {seed_path}")
+                except OSError:
+                    pass
+    except Exception:
+        pass
+
 
 if __name__ == "__main__":
     try:
