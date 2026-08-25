@@ -892,6 +892,21 @@ def remove_unwanted_outputs(final_results_folder, event_id, para_dict):
                                  "photon_results_{}".format(event_id))
         shutil.rmtree(photonfolder, ignore_errors=True)
 
+    # Ensure any per-event copies of the isobar seed are removed from
+    # the final results directory to save space. Skip anything living
+    # under a `shared_seeds` directory.
+    try:
+        for seed_pattern in ("nucleon-seeds_*.hdf", "nucleon-seeds.hdf"):
+            for seed_path in glob(path.join(final_results_folder, seed_pattern)):
+                try:
+                    if "/shared_seeds/" in path.abspath(seed_path).replace('\\\\', '/'):
+                        continue
+                    remove(seed_path)
+                except OSError:
+                    pass
+    except Exception:
+        pass
+
 
 def checkPoint(startTime, checkPointFileName, finalResultsFolder):
     checkPointTime = time.time()
