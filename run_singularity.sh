@@ -107,6 +107,11 @@ if [ -n "${seed_name}" ] && [ -f "shared_seeds/${seed_name}" ] && [ -f "${seed_n
     rm -f "${seed_name}"
 fi
 
+# Aggressively remove any top-level seed copies that may have been
+# transferred into the sandbox root (regardless of what variable names
+# were used). Keep the canonical copy under `shared_seeds/`.
+rm -f ./nucleon-seeds_*.hdf ./nucleon-seeds.hdf || true
+
 /opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
 status=$?
 if [ $status -ne 0 ]; then
