@@ -276,6 +276,18 @@ def collect_trento_event(final_results_folder):
                     except OSError:
                         # ignore failures to remove individual links
                         pass
+        # Also remove any copied seed files left at the event root
+        for seed_pattern in ("nucleon-seeds_*.hdf", "nucleon-seeds.hdf"):
+            for seed_path in glob(path.join(event_root, seed_pattern)):
+                try:
+                    # do not remove files inside a shared_seeds directory
+                    if "/shared_seeds/" in path.abspath(seed_path).replace('\\\\', '/'):
+                        continue
+                    # remove regular files or symlinks that are local copies
+                    remove(seed_path)
+                    print(f"Removed per-event seed file: {seed_path}")
+                except OSError:
+                    pass
     except Exception:
         # never fail the run because cleanup couldn't complete
         pass
