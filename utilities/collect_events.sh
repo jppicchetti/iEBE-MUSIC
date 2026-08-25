@@ -83,3 +83,23 @@ fi
 ./combine_multiple_hdf5.py ${target_spvn_folder}
 mv SPVN_RESULTS.h5 ${target_folder}/${folderName}.h5
 rm -fr $target_spvn_folder
+
+# Remove any top-level per-job seed files that were copied into the
+# sandbox root during job setup. These are large and not needed once
+# we've collected `spvn` results and trento summaries. Do not touch
+# any `shared_seeds` directories.
+for s in "${fromFolder}"/nucleon-seeds_*.hdf "${fromFolder}"/nucleon-seeds.hdf; do
+    if [ -f "$s" ]; then
+        echo "Removing per-job seed copy: $s"
+        rm -f "$s" || true
+    fi
+done
+for s in "${target_folder}"/nucleon-seeds_*.hdf "${target_folder}"/nucleon-seeds.hdf; do
+    if [ -f "$s" ]; then
+        # ensure we don't accidentally remove a shared_seeds file
+        case "$s" in
+            *"/shared_seeds/"*) ;;
+            *) echo "Removing collected seed file: $s"; rm -f "$s" || true ;;
+        esac
+    fi
+done
