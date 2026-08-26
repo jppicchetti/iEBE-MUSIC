@@ -302,7 +302,9 @@ def generate_script_trento(folder_name, nthreads, trento_output, event_id):
 
 results_folder={0:s}
 evid=$1
-trento_seed=$evid
+# TRENTo uses 0 as "no seed" in its RNG API, so shift the event index by one
+# to keep the mapping event 0 -> seed 1, event 1 -> seed 2, etc.
+trento_seed=$((evid + 1))
 
  (
 cd TRENTo
