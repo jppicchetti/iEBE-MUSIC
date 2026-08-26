@@ -112,6 +112,19 @@ fi
 # were used). Keep the canonical copy under `shared_seeds/`.
 rm -f ./nucleon-seeds_*.hdf ./nucleon-seeds.hdf || true
 
+cleanup_seed_files() {
+    find "${SCRATCH_DIR}" -maxdepth 1 -type f \( -name 'nucleon-seeds_*.hdf' -o -name 'nucleon-seeds.hdf' \) -exec rm -f {} + || true
+    rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
+}
+
+archive_event_results() {
+    if [ -d "${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}" ] && [ ! -f "${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}.tar.gz" ]; then
+        tar -czf "${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}.tar.gz" -C "${SCRATCH_DIR}/playground/event_0" "EVENT_RESULTS_${processId}"
+    fi
+}
+
+trap 'cleanup_seed_files; archive_event_results' EXIT
+
 /opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
 status=$?
 if [ $status -ne 0 ]; then

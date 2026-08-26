@@ -378,8 +378,7 @@ archive_event_results() {
     fi
 }
 
-trap cleanup_job_scratch EXIT
-trap archive_event_results EXIT
+trap 'cleanup_job_scratch; archive_event_results' EXIT
 
 bash submit_job.script
 status=$?
