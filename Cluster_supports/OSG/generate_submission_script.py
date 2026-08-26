@@ -386,6 +386,10 @@ if [ $status -ne 0 ]; then
     echo "submit_job.script failed with exit code ${status}" >&2
     exit $status
 fi
+
+find "${SCRATCH_DIR}" -maxdepth 1 -type f \( -name 'nucleon-seeds_*.hdf' -o -name 'nucleon-seeds.hdf' \) -exec rm -f {} + || true
+rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
+
 if [ ! -d "EVENT_RESULTS_${processId}" ]; then
     echo "Missing final results directory: ${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}" >&2
     ls -la "${SCRATCH_DIR}/playground/event_0" >&2 || true
