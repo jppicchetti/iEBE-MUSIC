@@ -365,6 +365,11 @@ if [ ! -f "submit_job.script" ]; then
     exit 1
 fi
 
+cleanup_job_scratch() {
+    find "${SCRATCH_DIR}" -maxdepth 1 -type f \( -name 'nucleon-seeds_*.hdf' -o -name 'nucleon-seeds.hdf' \) -exec rm -f {} + || true
+    rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
+}
+
 archive_event_results() {
     if [ -d "EVENT_RESULTS_${processId}" ] && [ ! -f "EVENT_RESULTS_${processId}.tar.gz" ]; then
         tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
@@ -373,6 +378,7 @@ archive_event_results() {
     fi
 }
 
+trap cleanup_job_scratch EXIT
 trap archive_event_results EXIT
 
 bash submit_job.script
