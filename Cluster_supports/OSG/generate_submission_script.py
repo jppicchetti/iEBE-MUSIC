@@ -322,7 +322,10 @@ if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ]; then
     exit 1
 fi
 
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} -b ${bayesFile} --nocopy --continueFlag
+event_start_id=$(( processId * nHydroEvents ))
+event_end_id=$(( event_start_id + nHydroEvents - 1 ))
+
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} --event_start_id ${event_start_id} --event_end_id ${event_end_id} --nocopy --continueFlag -b ${bayesFile}
 status=$?
 if [ $status -ne 0 ]; then
     echo "generate_jobs.py failed with exit code ${status}" >&2
@@ -342,7 +345,10 @@ if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ]; then
     exit 1
 fi
 
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
+event_start_id=$(( processId * nHydroEvents ))
+event_end_id=$(( event_start_id + nHydroEvents - 1 ))
+
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} --event_start_id ${event_start_id} --event_end_id ${event_end_id} --nocopy --continueFlag
 status=$?
 if [ $status -ne 0 ]; then
     echo "generate_jobs.py failed with exit code ${status}" >&2
