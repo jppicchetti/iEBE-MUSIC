@@ -155,15 +155,12 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
     initial_state_type = detect_initial_state_type(para_dict_["param_file"])
 
     if para_dict_.get("output_mode", "quiet") == "verbose":
-        transfer_output = "playground/event_0/EVENT_RESULTS_$(Process).tar.gz"
+        transfer_output = "playground/event_*/EVENT_RESULTS_*/**"
     else:
         quiet_outputs = [
-            "playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5"
+            "playground/event_*/EVENT_RESULTS_*/spvn_results_*.h5",
+            "playground/event_*/EVENT_RESULTS_*/trento_event_summary_*.txt",
         ]
-        if initial_state_type == "TRENTo":
-            quiet_outputs.append(
-                "playground/event_0/EVENT_RESULTS_$(Process)/trento_event_summary_$(Process).txt"
-            )
         transfer_output = ", ".join(quiet_outputs)
 
     script.write("""
@@ -357,17 +354,20 @@ fi
 """)
 
     script.write("""
-if [ ! -d "${SCRATCH_DIR}/playground/event_0" ]; then
-    echo "Missing expected job directory: ${SCRATCH_DIR}/playground/event_0" >&2
-    ls -la "${SCRATCH_DIR}" >&2 || true
-    ls -la "${SCRATCH_DIR}/playground" >&2 || true
-    exit 1
-fi
+event_start_id=${event_start_id:-0}
+event_end_id=${event_end_id:-$(( event_start_id + nHydroEvents - 1 ))}
 
-cd "${SCRATCH_DIR}/playground/event_0"
-if [ ! -f "submit_job.script" ]; then
-    echo "Missing submit_job.script in ${SCRATCH_DIR}/playground/event_0" >&2
-    ls -la >&2
+job_event_dirs=()
+for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
+    candidate="${SCRATCH_DIR}/playground/event_${ev}"
+    if [ -d "${candidate}" ] && [ -f "${candidate}/submit_job.script" ]; then
+        job_event_dirs+=("${candidate}")
+    fi
+done
+
+if [ ${#job_event_dirs[@]} -eq 0 ]; then
+    echo "Missing event directories for event range ${event_start_id}..${event_end_id}" >&2
+    ls -la "${SCRATCH_DIR}/playground" >&2 || true
     exit 1
 fi
 
@@ -377,29 +377,43 @@ cleanup_job_scratch() {
 }
 
 archive_event_results() {
-    if [ -d "EVENT_RESULTS_${processId}" ] && [ ! -f "EVENT_RESULTS_${processId}.tar.gz" ]; then
-        tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
-    elif [ ! -f "EVENT_RESULTS_${processId}.tar.gz" ]; then
-        tar -czf EVENT_RESULTS_${processId}.tar.gz --exclude="EVENT_RESULTS_${processId}.tar.gz" .
-    fi
+    for event_dir in "${job_event_dirs[@]}"; do
+        event_name=$(basename "${event_dir}")
+        event_id=${event_name#event_}
+        result_dir="${event_dir}/EVENT_RESULTS_${event_id}"
+        if [ -d "${result_dir}" ] && [ ! -f "${result_dir}.tar.gz" ]; then
+            tar -czf "${result_dir}.tar.gz" -C "${event_dir}" "EVENT_RESULTS_${event_id}"
+        fi
+    done
 }
 
 trap 'cleanup_job_scratch; archive_event_results' EXIT
 
-bash submit_job.script
-status=$?
-if [ $status -ne 0 ]; then
-    echo "submit_job.script failed with exit code ${status}" >&2
-    exit $status
-fi
+for event_dir in "${job_event_dirs[@]}"; do
+    cd "${event_dir}"
+    bash submit_job.script
+    status=$?
+    if [ $status -ne 0 ]; then
+        echo "submit_job.script failed with exit code ${status}" >&2
+        exit $status
+    fi
+
+done
 
 find "${SCRATCH_DIR}" -maxdepth 1 -type f \( -name 'nucleon-seeds_*.hdf' -o -name 'nucleon-seeds.hdf' \) -exec rm -f {} + || true
 rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
 
-if [ ! -d "EVENT_RESULTS_${processId}" ]; then
-    echo "Missing final results directory: ${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}" >&2
-    ls -la "${SCRATCH_DIR}/playground/event_0" >&2 || true
-    find "${SCRATCH_DIR}/playground/event_0" -maxdepth 2 -type d | sort >&2 || true
+results_found=0
+for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
+    result_dir="${SCRATCH_DIR}/playground/event_${ev}/EVENT_RESULTS_${ev}"
+    if [ -d "${result_dir}" ]; then
+        results_found=$(( results_found + 1 ))
+    fi
+done
+
+if [ ${results_found} -eq 0 ]; then
+    echo "Missing generated EVENT_RESULTS_* directories for event range ${event_start_id}..${event_end_id}" >&2
+    find "${SCRATCH_DIR}/playground" -maxdepth 2 -type d | sort >&2 || true
     exit 1
 fi
 status=$?
@@ -461,16 +475,13 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
 
     initial_state_type = detect_initial_state_type(para_dict_["param_file"])
 
-    if para_dict_.get("output_mode", "quiet") == "verbose":
-        transfer_output = "playground/event_0/EVENT_RESULTS_$(Process).tar.gz"
+    if para_dict_.get("output_mode", "verbose") == "verbose":
+        transfer_output = "playground/event_*/EVENT_RESULTS_*/**"
     else:
         quiet_outputs = [
-            "playground/event_0/EVENT_RESULTS_$(Process)/spvn_results_$(Process).h5"
+            "playground/event_*/EVENT_RESULTS_*/spvn_results_*.h5",
+            "playground/event_*/EVENT_RESULTS_*/trento_event_summary_*.txt",
         ]
-        if initial_state_type == "TRENTo":
-            quiet_outputs.append(
-                "playground/event_0/EVENT_RESULTS_$(Process)/trento_event_summary.txt"
-            )
         transfer_output = ", ".join(quiet_outputs)
 
     script.write("""
