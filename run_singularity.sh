@@ -5,6 +5,7 @@ parafile=$1
 processId=$2
 nHydroEvents=$3
 nthreads=$4
+nUrqmdSamples=2
 seed=$5
 
 export PYTHONIOENCODING=utf-8
@@ -13,6 +14,22 @@ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/gsl/2.5/x86
 
 SCRATCH_DIR="${PWD}"
 cd "${SCRATCH_DIR}"
+export HOME="${SCRATCH_DIR}"
+export XDG_DATA_HOME="${HOME}/.local/share"
+export XDG_CACHE_HOME="${HOME}/.cache"
+export TRENTO_CACHE="${HOME}/.trento"
+mkdir -p "${XDG_DATA_HOME}"
+mkdir -p "${XDG_CACHE_HOME}"
+mkdir -p "${TRENTO_CACHE}"
+mkdir -p "${XDG_DATA_HOME}/trento"
+export HOME="${SCRATCH_DIR}"
+export XDG_DATA_HOME="${HOME}/.local/share"
+export XDG_CACHE_HOME="${HOME}/.cache"
+export TRENTO_CACHE="${HOME}/.trento"
+mkdir -p "${XDG_DATA_HOME}"
+mkdir -p "${XDG_CACHE_HOME}"
+mkdir -p "${TRENTO_CACHE}"
+mkdir -p "${XDG_DATA_HOME}/trento"
 
 if [ ! -f "$(basename "${parafile}")" ] && [ -f "${parafile}" ]; then
     cp "${parafile}" "$(basename "${parafile}")"
@@ -68,8 +85,7 @@ for marker in ["isobar_seed_file = ", "isobar_seed_file: ", "isobar_seed_file= "
     if idx < 0:
         continue
     start = idx + len(marker)
-    end = text.find("
-", start)
+    end = text.find("\n", start)
     if end < 0:
         end = len(text)
     quote = text[start] if start < len(text) and text[start] in ('"', "'") else '"'
@@ -96,71 +112,94 @@ if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ]; then
     exit 1
 fi
 
-# Remove any top-level copy of the seed file now that we have a
-# canonical copy under shared_seeds/ to avoid leaving large files in
-# the sandbox root. Leave the shared copy intact.
-if [ -f "${seed_base}" ] && [ -f "shared_seeds/${seed_base}" ]; then
-    rm -f "${seed_base}"
-fi
+event_start_id=$(( processId * nHydroEvents ))
+event_end_id=$(( event_start_id + nHydroEvents - 1 ))
 
-if [ -n "${seed_name}" ] && [ -f "shared_seeds/${seed_name}" ] && [ -f "${seed_name}" ]; then
-    rm -f "${seed_name}"
-fi
-
-# Aggressively remove any top-level seed copies that may have been
-# transferred into the sandbox root (regardless of what variable names
-# were used). Keep the canonical copy under `shared_seeds/`.
-rm -f ./nucleon-seeds_*.hdf ./nucleon-seeds.hdf || true
-
-cleanup_seed_files() {
-    find "${SCRATCH_DIR}" -maxdepth 1 -type f \( -name 'nucleon-seeds_*.hdf' -o -name 'nucleon-seeds.hdf' \) -exec rm -f {} + || true
-    rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
-}
-
-archive_event_results() {
-    if [ -d "${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}" ] && [ ! -f "${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}.tar.gz" ]; then
-        tar -czf "${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}.tar.gz" -C "${SCRATCH_DIR}/playground/event_0" "EVENT_RESULTS_${processId}"
-    fi
-}
-
-trap 'cleanup_seed_files; archive_event_results' EXIT
-
-/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nthreads} -n_hydro ${nHydroEvents} -seed ${seed} --nocopy --continueFlag
+/opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} --event_start_id ${event_start_id} --event_end_id ${event_end_id} --nocopy --continueFlag
 status=$?
 if [ $status -ne 0 ]; then
     echo "generate_jobs.py failed with exit code ${status}" >&2
     exit $status
 fi
 
-if [ ! -d "${SCRATCH_DIR}/playground/event_0" ]; then
-    echo "Missing expected job directory: ${SCRATCH_DIR}/playground/event_0" >&2
-    ls -la "${SCRATCH_DIR}" >&2 || true
+event_start_id=${event_start_id:-0}
+event_end_id=${event_end_id:-$(( event_start_id + nHydroEvents - 1 ))}
+
+job_event_dirs=()
+for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
+    candidate="${SCRATCH_DIR}/playground/event_${ev}"
+    if [ -d "${candidate}" ] && [ -f "${candidate}/submit_job.script" ]; then
+        job_event_dirs+=("${candidate}")
+    fi
+done
+
+if [ ${#job_event_dirs[@]} -eq 0 ]; then
+    echo "Missing event directories for event range ${event_start_id}..${event_end_id}" >&2
     ls -la "${SCRATCH_DIR}/playground" >&2 || true
     exit 1
 fi
 
-cd "${SCRATCH_DIR}/playground/event_0"
-if [ ! -f "submit_job.script" ]; then
-    echo "Missing submit_job.script in ${SCRATCH_DIR}/playground/event_0" >&2
-    ls -la >&2
-    exit 1
-fi
-bash submit_job.script
-status=$?
-if [ $status -ne 0 ]; then
-    exit $status
-fi
+cleanup_job_scratch() {
+    find "${SCRATCH_DIR}" -maxdepth 1 -type f \( -name 'nucleon-seeds_*.hdf' -o -name 'nucleon-seeds.hdf' \) -exec rm -f {} + || true
+    rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
+}
+
+archive_event_results() {
+    for event_dir in "${job_event_dirs[@]}"; do
+        event_name=$(basename "${event_dir}")
+        event_id=${event_name#event_}
+        result_dir="${event_dir}/EVENT_RESULTS_${event_id}"
+        if [ -d "${result_dir}" ] && [ ! -f "${result_dir}.tar.gz" ]; then
+            tar -czf "${result_dir}.tar.gz" -C "${event_dir}" "EVENT_RESULTS_${event_id}"
+        fi
+    done
+}
+
+trap 'cleanup_job_scratch; archive_event_results' EXIT
+
+for event_dir in "${job_event_dirs[@]}"; do
+    cd "${event_dir}"
+    bash submit_job.script
+    status=$?
+    if [ $status -ne 0 ]; then
+        echo "submit_job.script failed with exit code ${status}" >&2
+        exit $status
+    fi
+
+done
 
 find "${SCRATCH_DIR}" -maxdepth 1 -type f \( -name 'nucleon-seeds_*.hdf' -o -name 'nucleon-seeds.hdf' \) -exec rm -f {} + || true
 rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
 
-if [ ! -d "EVENT_RESULTS_${processId}" ]; then
-    echo "Missing final results directory: ${SCRATCH_DIR}/playground/event_0/EVENT_RESULTS_${processId}" >&2
-    ls -la "${SCRATCH_DIR}/playground/event_0" >&2 || true
-    find "${SCRATCH_DIR}/playground/event_0" -maxdepth 2 -type d | sort >&2 || true
+results_found=0
+for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
+    result_dir="${SCRATCH_DIR}/playground/event_${ev}/EVENT_RESULTS_${ev}"
+    if [ -d "${result_dir}" ]; then
+        results_found=$(( results_found + 1 ))
+    fi
+done
+
+if [ ${results_found} -eq 0 ]; then
+    echo "Missing generated EVENT_RESULTS_* directories for event range ${event_start_id}..${event_end_id}" >&2
+    find "${SCRATCH_DIR}/playground" -maxdepth 2 -type d | sort >&2 || true
     exit 1
 fi
-tar -czf EVENT_RESULTS_${processId}.tar.gz EVENT_RESULTS_${processId}
+
+job_output_tar="${SCRATCH_DIR}/job_output_${processId}.tar.gz"
+job_paths=()
+for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
+    if [ -d "${SCRATCH_DIR}/playground/event_${ev}" ]; then
+        job_paths+=("playground/event_${ev}")
+    fi
+done
+if [ ${#job_paths[@]} -gt 0 ]; then
+    tar -czf "${job_output_tar}" -C "${SCRATCH_DIR}" "${job_paths[@]}"
+    ls -lh "${job_output_tar}"
+else
+    echo "No event folders found for job ${processId} range ${event_start_id}..${event_end_id}" >&2
+    exit 1
+fi
+
 status=$?
 if [ $status -ne 0 ]; then
     exit $status

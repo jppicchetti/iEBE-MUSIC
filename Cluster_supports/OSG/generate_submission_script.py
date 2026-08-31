@@ -90,28 +90,15 @@ def normalize_singularity_image_path(image_path):
     return "osdf://{}".format(expanded_path)
 
 
-def build_transfer_output_list_for_all_jobs(n_jobs, n_events_per_job, initial_state_type, quiet_mode):
-    """Return the full explicit transfer list for a multi-job OSG submission.
+def build_transfer_output_tarball_name():
+    """Return the single per-job tarball name transferred from each OSG worker.
 
-    HTCondor does not expand wildcard paths like "event_*/EVENT_RESULTS_*/..." at
-    transfer time. We therefore generate the exact output paths for every event in
-    the submission, which keeps the files tied to the correct global event ids.
+    Each HTCondor job owns a specific global event range. The only reliable way to
+    transfer files for that range is to archive the generated outputs into one
+    tarball that is unique to the process id, rather than trying to list every
+    other process's files in a static transfer_output_files entry.
     """
-    outputs = []
-    for process_id in range(n_jobs):
-        start_event = process_id * n_events_per_job
-        for event_id in range(start_event, start_event + n_events_per_job):
-            if quiet_mode:
-                outputs.append(
-                    f"playground/event_{event_id}/EVENT_RESULTS_{event_id}/spvn_results_{event_id}.h5"
-                )
-                if initial_state_type == "TRENTo":
-                    outputs.append(
-                        f"playground/event_{event_id}/EVENT_RESULTS_{event_id}/trento_event_summary_{event_id}.txt"
-                    )
-            else:
-                outputs.append(f"playground/event_{event_id}/EVENT_RESULTS_{event_id}.tar.gz")
-    return ", ".join(outputs)
+    return "job_output_$(Process).tar.gz"
 
 
 # ── UrQMD mode (original logic) ──────────────────────────────────────────────
@@ -174,16 +161,9 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
         ", ".join(input_files)))
 
     script.write(
-        "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
+        "transfer_checkpoint_files = job_output_$(Process).tar.gz\n")
 
-    initial_state_type = detect_initial_state_type(para_dict_["param_file"])
-
-    transfer_output = build_transfer_output_list_for_all_jobs(
-        para_dict_["n_jobs"],
-        para_dict_["n_events_per_job"],
-        initial_state_type,
-        para_dict_.get("output_mode", "quiet") == "quiet",
-    )
+    transfer_output = build_transfer_output_tarball_name()
 
     script.write("""
 transfer_output_files = {3}
@@ -493,16 +473,9 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
     script.write("\ntransfer_input_files = {}\n".format(", ".join(input_files)))
 
     #script.write(
-    #    "transfer_checkpoint_files = playground/event_0/EVENT_RESULTS_$(Process).tar.gz\n")
+    #    "transfer_checkpoint_files = job_output_$(Process).tar.gz\n")
 
-    initial_state_type = detect_initial_state_type(para_dict_["param_file"])
-
-    transfer_output = build_transfer_output_list_for_all_jobs(
-        para_dict_["n_jobs"],
-        para_dict_["n_events_per_job"],
-        initial_state_type,
-        para_dict_.get("output_mode", "quiet") == "quiet",
-    )
+    transfer_output = build_transfer_output_tarball_name()
 
     script.write("""
 transfer_output_files = {3}
