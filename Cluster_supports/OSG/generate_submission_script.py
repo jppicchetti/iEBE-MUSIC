@@ -378,18 +378,7 @@ cleanup_job_scratch() {
     rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
 }
 
-archive_event_results() {
-    for event_dir in "${job_event_dirs[@]}"; do
-        event_name=$(basename "${event_dir}")
-        event_id=${event_name#event_}
-        result_dir="${event_dir}/EVENT_RESULTS_${event_id}"
-        if [ -d "${result_dir}" ] && [ ! -f "${result_dir}.tar.gz" ]; then
-            tar -czf "${result_dir}.tar.gz" -C "${event_dir}" "EVENT_RESULTS_${event_id}"
-        fi
-    done
-}
-
-trap 'cleanup_job_scratch; archive_event_results' EXIT
+trap cleanup_job_scratch EXIT
 
 for event_dir in "${job_event_dirs[@]}"; do
     cd "${event_dir}"
@@ -418,6 +407,22 @@ if [ ${results_found} -eq 0 ]; then
     find "${SCRATCH_DIR}/playground" -maxdepth 2 -type d | sort >&2 || true
     exit 1
 fi
+
+job_output_tar="${SCRATCH_DIR}/job_output_${processId}.tar.gz"
+job_paths=()
+for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
+    if [ -d "${SCRATCH_DIR}/playground/event_${ev}" ]; then
+        job_paths+=("playground/event_${ev}")
+    fi
+done
+if [ ${#job_paths[@]} -gt 0 ]; then
+    tar -czf "${job_output_tar}" -C "${SCRATCH_DIR}" "${job_paths[@]}"
+    ls -lh "${job_output_tar}"
+else
+    echo "No event folders found for job ${processId} range ${event_start_id}..${event_end_id}" >&2
+    exit 1
+fi
+
 status=$?
 if [ $status -ne 0 ]; then
     exit $status
