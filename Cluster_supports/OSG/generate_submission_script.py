@@ -166,7 +166,7 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
             "transfer_checkpoint_files = job_output_$(Process).tar.gz\n")
 
     if quiet_mode:
-        transfer_output = "osg_quiet_outputs"
+        transfer_output = "spvn_results"
     else:
         transfer_output = build_transfer_output_tarball_name()
 
@@ -388,7 +388,7 @@ cleanup_job_scratch() {
 finalize_job_output() {
     cleanup_job_scratch
 
-    quiet_out_dir="${SCRATCH_DIR}/osg_quiet_outputs"
+    quiet_out_dir="${SCRATCH_DIR}/spvn_results"
     mkdir -p "${quiet_out_dir}"
     for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
         result_dir="${SCRATCH_DIR}/playground/event_${ev}/EVENT_RESULTS_${ev}"
@@ -426,11 +426,11 @@ trap finalize_job_output EXIT
 event_fail=0
 for event_dir in "${job_event_dirs[@]}"; do
     cd "${event_dir}"
-    if ! bash submit_job.script; then
-        status=$?
+    bash submit_job.script
+    status=$?
+    if [ $status -ne 0 ]; then
         echo "submit_job.script failed with exit code ${status} in ${event_dir}" >&2
         event_fail=${status}
-        break
     fi
 done
 
