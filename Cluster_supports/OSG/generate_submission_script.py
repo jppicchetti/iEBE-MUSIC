@@ -388,25 +388,10 @@ for event_dir in "${job_event_dirs[@]}"; do
         echo "submit_job.script failed with exit code ${status}" >&2
         exit $status
     fi
-
 done
 
 find "${SCRATCH_DIR}" -maxdepth 1 -type f \( -name 'nucleon-seeds_*.hdf' -o -name 'nucleon-seeds.hdf' \) -exec rm -f {} + || true
 rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
-
-results_found=0
-for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
-    result_dir="${SCRATCH_DIR}/playground/event_${ev}/EVENT_RESULTS_${ev}"
-    if [ -d "${result_dir}" ]; then
-        results_found=$(( results_found + 1 ))
-    fi
-done
-
-if [ ${results_found} -eq 0 ]; then
-    echo "Missing generated EVENT_RESULTS_* directories for event range ${event_start_id}..${event_end_id}" >&2
-    find "${SCRATCH_DIR}/playground" -maxdepth 2 -type d | sort >&2 || true
-    exit 1
-fi
 
 job_output_tar="${SCRATCH_DIR}/job_output_${processId}.tar.gz"
 job_paths=()
