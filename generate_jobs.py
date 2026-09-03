@@ -1422,7 +1422,6 @@ def main():
         n_jobs, " "*toolbar_width))
     sys.stdout.flush()
     sys.stdout.write("\b"*(toolbar_width + 1))
-    event_id_offset = job_id
     n_hydro_rescaled = n_hydro_per_job
     for iev in range(n_jobs):
         event_id = event_start_id + iev
@@ -1442,8 +1441,8 @@ def main():
                         1, int(n_hydro_per_job*rescale_factor + 0.1)))
                     if cent_label != cent_label_pre:
                         cent_label_pre = cent_label
-                        event_id_offset = 0
                     break
+        event_id_offset = event_id
         generate_event_folders(initial_condition_database.format(cent_label),
                                initial_condition_type, code_package_path,
                                code_path, working_folder_name, cluster_name,
@@ -1451,7 +1450,6 @@ def main():
                                n_urqmd_per_hydro, n_threads, parameter_dict,
                                afterburner_type, isobar_seed_file, EOSType, EOSId, EOSFileName,
                                debugFlag)
-        event_id_offset += n_hydro_rescaled
     sys.stdout.write("\n")
     sys.stdout.flush()
 
