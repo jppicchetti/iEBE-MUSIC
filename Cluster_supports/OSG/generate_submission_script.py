@@ -378,39 +378,43 @@ cleanup_job_scratch() {
     rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
 }
 
-trap cleanup_job_scratch EXIT
+finalize_job_output() {
+    cleanup_job_scratch
 
+    job_output_tar="${SCRATCH_DIR}/job_output_${processId}.tar.gz"
+    job_paths=()
+    for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
+        if [ -d "${SCRATCH_DIR}/playground/event_${ev}" ]; then
+            job_paths+=("playground/event_${ev}")
+        fi
+    done
+
+    if [ ${#job_paths[@]} -gt 0 ]; then
+        tar -czf "${job_output_tar}" -C "${SCRATCH_DIR}" "${job_paths[@]}" || true
+    else
+        placeholder=".job_output_${processId}_empty"
+        : > "${SCRATCH_DIR}/${placeholder}"
+        tar -czf "${job_output_tar}" -C "${SCRATCH_DIR}" "${placeholder}" || true
+        rm -f "${SCRATCH_DIR}/${placeholder}" || true
+    fi
+    ls -lh "${job_output_tar}" || true
+}
+
+trap finalize_job_output EXIT
+
+event_fail=0
 for event_dir in "${job_event_dirs[@]}"; do
     cd "${event_dir}"
-    bash submit_job.script
-    status=$?
-    if [ $status -ne 0 ]; then
-        echo "submit_job.script failed with exit code ${status}" >&2
-        exit $status
+    if ! bash submit_job.script; then
+        status=$?
+        echo "submit_job.script failed with exit code ${status} in ${event_dir}" >&2
+        event_fail=${status}
+        break
     fi
 done
 
-find "${SCRATCH_DIR}" -maxdepth 1 -type f \( -name 'nucleon-seeds_*.hdf' -o -name 'nucleon-seeds.hdf' \) -exec rm -f {} + || true
-rm -f "${SCRATCH_DIR}/nucleon-seeds_*.hdf" "${SCRATCH_DIR}/nucleon-seeds.hdf" || true
-
-job_output_tar="${SCRATCH_DIR}/job_output_${processId}.tar.gz"
-job_paths=()
-for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
-    if [ -d "${SCRATCH_DIR}/playground/event_${ev}" ]; then
-        job_paths+=("playground/event_${ev}")
-    fi
-done
-if [ ${#job_paths[@]} -gt 0 ]; then
-    tar -czf "${job_output_tar}" -C "${SCRATCH_DIR}" "${job_paths[@]}"
-    ls -lh "${job_output_tar}"
-else
-    echo "No event folders found for job ${processId} range ${event_start_id}..${event_end_id}" >&2
-    exit 1
-fi
-
-status=$?
-if [ $status -ne 0 ]; then
-    exit $status
+if [ ${event_fail} -ne 0 ]; then
+    exit ${event_fail}
 fi
 """)
     script.close()
