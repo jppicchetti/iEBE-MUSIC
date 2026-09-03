@@ -160,10 +160,15 @@ Requirements = SINGULARITY_CAN_USE_SIF && StringListIMember("stash", HasFileTran
     script.write("\ntransfer_input_files = {}\n".format(
         ", ".join(input_files)))
 
-    script.write(
-        "transfer_checkpoint_files = job_output_$(Process).tar.gz\n")
+    quiet_mode = para_dict_.get("output_mode", "quiet") == "quiet"
+    if not quiet_mode:
+        script.write(
+            "transfer_checkpoint_files = job_output_$(Process).tar.gz\n")
 
-    transfer_output = build_transfer_output_tarball_name()
+    if quiet_mode:
+        transfer_output = "osg_quiet_outputs"
+    else:
+        transfer_output = build_transfer_output_tarball_name()
 
     script.write("""
 transfer_output_files = {3}
@@ -210,6 +215,7 @@ nHydroEvents=$3
 nthreads=$4
 nUrqmdSamples=__NURQMD_SAMPLES__
 seed=$5
+output_mode="__OUTPUT_MODE__"
 
 export PYTHONIOENCODING=utf-8
 export PATH="${PATH}:/usr/lib64/openmpi/bin:/usr/local/gsl/2.5/x86_64/bin"
@@ -250,7 +256,8 @@ printf "system kernel: `uname -r`\\n"
 printf "Job running as user: `/usr/bin/id`\\n"
 printf "Working directory: ${SCRATCH_DIR}\\n"
 
-""".replace("__NURQMD_SAMPLES__", str(para_dict_["n_urqmd_per_hydro"])))
+""".replace("__NURQMD_SAMPLES__", str(para_dict_["n_urqmd_per_hydro"])
+              ).replace("__OUTPUT_MODE__", para_dict_.get("output_mode", "quiet")))
     if seed_file:
         script.write("""
 seedfile="${6:-}"
@@ -381,23 +388,37 @@ cleanup_job_scratch() {
 finalize_job_output() {
     cleanup_job_scratch
 
-    job_output_tar="${SCRATCH_DIR}/job_output_${processId}.tar.gz"
-    job_paths=()
+    quiet_out_dir="${SCRATCH_DIR}/osg_quiet_outputs"
+    mkdir -p "${quiet_out_dir}"
     for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
-        if [ -d "${SCRATCH_DIR}/playground/event_${ev}" ]; then
-            job_paths+=("playground/event_${ev}")
+        result_dir="${SCRATCH_DIR}/playground/event_${ev}/EVENT_RESULTS_${ev}"
+        if [ -f "${result_dir}/spvn_results_${ev}.h5" ]; then
+            cp -f "${result_dir}/spvn_results_${ev}.h5" "${quiet_out_dir}/"
+        fi
+        if [ -f "${result_dir}/trento_event_summary_${ev}.txt" ]; then
+            cp -f "${result_dir}/trento_event_summary_${ev}.txt" "${quiet_out_dir}/"
         fi
     done
 
-    if [ ${#job_paths[@]} -gt 0 ]; then
-        tar -czf "${job_output_tar}" -C "${SCRATCH_DIR}" "${job_paths[@]}" || true
-    else
-        placeholder=".job_output_${processId}_empty"
-        : > "${SCRATCH_DIR}/${placeholder}"
-        tar -czf "${job_output_tar}" -C "${SCRATCH_DIR}" "${placeholder}" || true
-        rm -f "${SCRATCH_DIR}/${placeholder}" || true
+    if [ "${output_mode}" != "quiet" ]; then
+        job_output_tar="${SCRATCH_DIR}/job_output_${processId}.tar.gz"
+        job_paths=()
+        for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
+            if [ -d "${SCRATCH_DIR}/playground/event_${ev}" ]; then
+                job_paths+=("playground/event_${ev}")
+            fi
+        done
+
+        if [ ${#job_paths[@]} -gt 0 ]; then
+            tar -czf "${job_output_tar}" -C "${SCRATCH_DIR}" "${job_paths[@]}" || true
+        else
+            placeholder=".job_output_${processId}_empty"
+            : > "${SCRATCH_DIR}/${placeholder}"
+            tar -czf "${job_output_tar}" -C "${SCRATCH_DIR}" "${placeholder}" || true
+            rm -f "${SCRATCH_DIR}/${placeholder}" || true
+        fi
+        ls -lh "${job_output_tar}" || true
     fi
-    ls -lh "${job_output_tar}" || true
 }
 
 trap finalize_job_output EXIT
