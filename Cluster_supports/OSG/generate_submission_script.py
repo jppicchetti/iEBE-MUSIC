@@ -329,7 +329,7 @@ if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ]; then
 fi
 
 event_start_id=$(( processId * nHydroEvents ))
-event_end_id=$(( event_start_id + nHydroEvents - 1 ))
+event_end_id=${event_start_id}
 
 /opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} --event_start_id ${event_start_id} --event_end_id ${event_end_id} --nocopy --continueFlag -b ${bayesFile}
 status=$?
@@ -352,7 +352,7 @@ if [ -n "${seed_name}" ] && [ ! -f "shared_seeds/${seed_name}" ]; then
 fi
 
 event_start_id=$(( processId * nHydroEvents ))
-event_end_id=$(( event_start_id + nHydroEvents - 1 ))
+event_end_id=${event_start_id}
 
 /opt/iEBE-MUSIC/generate_jobs.py -w playground -c OSG -par ${parafile} -id ${processId} -n_th ${nthreads} -n_urqmd ${nUrqmdSamples} -n_hydro ${nHydroEvents} -seed ${seed} --event_start_id ${event_start_id} --event_end_id ${event_end_id} --nocopy --continueFlag
 status=$?

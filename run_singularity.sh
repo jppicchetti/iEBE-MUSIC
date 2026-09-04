@@ -124,7 +124,7 @@ if [ $status -ne 0 ]; then
 fi
 
 event_start_id=${event_start_id:-0}
-event_end_id=${event_end_id:-$(( event_start_id + nHydroEvents - 1 ))}
+event_end_id=${event_end_id:-${event_start_id}}
 
 job_event_dirs=()
 for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
