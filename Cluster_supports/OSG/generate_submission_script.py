@@ -390,15 +390,10 @@ finalize_job_output() {
 
     quiet_out_dir="${SCRATCH_DIR}/spvn_results"
     mkdir -p "${quiet_out_dir}"
-    for (( ev = event_start_id; ev <= event_end_id; ev++ )); do
-        result_dir="${SCRATCH_DIR}/playground/event_${ev}/EVENT_RESULTS_${ev}"
-        if [ -f "${result_dir}/spvn_results_${ev}.h5" ]; then
-            cp -f "${result_dir}/spvn_results_${ev}.h5" "${quiet_out_dir}/"
-        fi
-        if [ -f "${result_dir}/trento_event_summary_${ev}.txt" ]; then
-            cp -f "${result_dir}/trento_event_summary_${ev}.txt" "${quiet_out_dir}/"
-        fi
-    done
+    find "${SCRATCH_DIR}/playground" -type f \( \
+        -name 'spvn_results_*.h5' -o \
+        -name 'trento_event_summary_*.txt' \
+    \) -exec cp -f {} "${quiet_out_dir}/" \; || true
 
     if [ "${output_mode}" != "quiet" ]; then
         job_output_tar="${SCRATCH_DIR}/job_output_${processId}.tar.gz"
