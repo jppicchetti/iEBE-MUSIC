@@ -563,12 +563,7 @@ def prepare_surface_files_for_urqmd(final_results_folder, hydro_folder_name,
 
 def run_urqmd_event(event_id):
     """This function runs hadornic afterburner"""
-    status = call("bash ./run_afterburner.sh {0:d}".format(event_id),
-                  shell=True)
-    if status != 0:
-        raise RuntimeError(
-            "UrQMD afterburner failed for subevent {} (exit code {}).".format(
-                event_id, status))
+    call("bash ./run_afterburner.sh {0:d}".format(event_id), shell=True)
 
 
 def run_urqmd_shell(n_urqmd, final_results_folder, event_id, para_dict,
