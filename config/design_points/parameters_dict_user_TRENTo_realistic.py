@@ -177,4 +177,13 @@ hadronic_afterburner_toolkit_dict = {
     'flag_charge_dependence': 0,
     'compute_corr_rap_dep': 0,
     'resonance_weak_feed_down_flag': 1,
+    # Charged particles (particle_monval=9999) use this as -1 < eta < 1;
+    # identified particles use it as -1 < y < 1 because rap_type=1.
+    'pT_min': 0.2,
+    'pT_max': 2.0,
+    'rap_min': -1.0,
+    'rap_max': 1.0,
+    'rap_type': 1,
+    'vn_rapidity_dis_pT_min': 0.2,
+    'vn_rapidity_dis_pT_max': 2.0,
 }
