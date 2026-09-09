@@ -622,8 +622,9 @@ def generate_script_afterburner(folder_name, HBT_flag, afterburner_type,
 
     script = open(path.join(working_folder, "run_afterburner.sh"), "w")
     script.write("""#!/bin/bash
+set -euo pipefail
 
-unalias ls 2>/dev/null
+    unalias ls 2>/dev/null || true
 
 SubEventId=$1
 
