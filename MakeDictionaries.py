@@ -10,7 +10,7 @@ parameter_dictionary_design_point_{k}.py with k = 1, 2, 3, ...
 Usage:
     python3 MakeDictionaries.py
     python3 MakeDictionaries.py design
-    python3 MakeDictionaries.py --design /path/to/design --template /path/to/template.py --output-dir /path/to/output
+    python3 MakeDictionaries.py --design /path/to/design --start-design-point 1 --end-design-point 250
 """
 
 from __future__ import annotations
@@ -35,18 +35,18 @@ def default_template_config() -> dict:
     return {
         "control_dict": {
             "initial_state_type": "TRENTo",
-            "walltime": "10:00:00",
+            "walltime": "20:00:00",
             "afterburner_type": "UrQMD",
             "save_hydro_surfaces": False,
             "save_UrQMD_files": False,
         },
-        "isobar_seed_file": "shared_seeds/nucleon-seeds_96.hdf",
+        "isobar_seed_file": "shared_seeds/nucleon-seeds.hdf",
         "isobars_conf_dict_target": {
             "isobar_samples": {
                 "description": "Options for the isobar nucleon-position samples",
                 "number_configs": {"description": "Number of configurations to be sampled.", "value": 1},
                 "number_nucleons": {"description": "Mass number A of the nuclei.", "value": 96},
-                "seeds_file": {"description": "Input file with list of seeds for nucleon positions.", "filename": "nucleon-seeds_96.hdf"},
+                "seeds_file": {"description": "Input file with list of seeds for nucleon positions.", "filename": "nucleon-seeds.hdf"},
                 "output_path": {"description": "Output directory where to save", "dirname": "nuclei_target"},
                 "number_of_parallel_processes": {"description": "Number of processes to compute in parallel.", "value": -1},
             },
@@ -69,7 +69,7 @@ def default_template_config() -> dict:
                 "description": "Options for the isobar nucleon-position samples",
                 "number_configs": {"description": "Number of configurations to be sampled.", "value": 1},
                 "number_nucleons": {"description": "Mass number A of the nuclei.", "value": 96},
-                "seeds_file": {"description": "Input file with list of seeds for nucleon positions.", "filename": "nucleon-seeds_96.hdf"},
+                "seeds_file": {"description": "Input file with list of seeds for nucleon positions.", "filename": "nucleon-seeds.hdf"},
                 "output_path": {"description": "Output directory where to save", "dirname": "nuclei_projectile"},
                 "number_of_parallel_processes": {"description": "Number of processes to compute in parallel.", "value": -1},
             },
@@ -157,6 +157,13 @@ def default_template_config() -> dict:
             "flag_charge_dependence": 0,
             "compute_corr_rap_dep": 0,
             "resonance_weak_feed_down_flag": 1,
+            "pT_min": 0.2,
+            "pT_max": 2.0,
+            "rap_min": -1.0,
+            "rap_max": 1.0,
+            "rap_type": 1,
+            "vn_rapidity_dis_pT_min": 0.2,
+            "vn_rapidity_dis_pT_max": 2.0,
         },
     }
 
@@ -188,6 +195,18 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Directory in which to create DesignPointN folders. Defaults to the current working directory.",
+    )
+    parser.add_argument(
+        "--start-design-point",
+        type=int,
+        default=1,
+        help="First design-point number to generate, inclusive.",
+    )
+    parser.add_argument(
+        "--end-design-point",
+        type=int,
+        default=None,
+        help="Last design-point number to generate, inclusive. Defaults to the final row.",
     )
     args = parser.parse_args()
     if args.design_flag is not None:
@@ -403,7 +422,7 @@ def format_isobar_dict(section_name: str, row: dict[str, str]) -> str:
         '        },',
         '        "seeds_file": {',
         '            "description": "Input file with list of seeds for nucleon positions.",',
-        '            "filename": "nucleon-seeds_96.hdf",',
+        '            "filename": "nucleon-seeds.hdf",',
         '        },',
         '        "output_path": {',
         '            "description": "Output directory where to save",',
@@ -490,6 +509,15 @@ def main() -> None:
     if not rows:
         raise RuntimeError(f"No design points found in {design_path}.")
 
+    start_design_point = args.start_design_point
+    end_design_point = args.end_design_point or len(rows)
+    if start_design_point < 1 or end_design_point < start_design_point:
+        raise ValueError("Design-point range must satisfy 1 <= start <= end.")
+    if end_design_point > len(rows):
+        raise ValueError(
+            f"Design-point range ends at {end_design_point}, but the design has only {len(rows)} rows."
+        )
+
     template_ns = load_template(template_path)
     base_config = {
         name: template_ns[name]
@@ -508,6 +536,8 @@ def main() -> None:
 
     for zero_based_index, row in enumerate(rows):
         one_based_index = zero_based_index + 1
+        if one_based_index < start_design_point or one_based_index > end_design_point:
+            continue
         config = {key: value.copy() if isinstance(value, dict) else value for key, value in base_config.items()}
         # deep-copy the nested dicts to avoid cross-design pollution
         config["control_dict"] = dict(base_config["control_dict"])
@@ -522,6 +552,7 @@ def main() -> None:
         config["music_dict"] = dict(base_config["music_dict"])
         config["iss_dict"] = dict(base_config["iss_dict"])
         config["hadronic_afterburner_toolkit_dict"] = dict(base_config["hadronic_afterburner_toolkit_dict"])
+        config["control_dict"]["walltime"] = "20:00:00"
 
         update_template_values(config, row)
 
@@ -529,7 +560,8 @@ def main() -> None:
         point_dir = output_dir / dir_name
         write_design_point_file(point_dir, one_based_index, config, row)
 
-    print(f"Generated {len(rows)} design-point folders under {output_dir}")
+    generated_count = end_design_point - start_design_point + 1
+    print(f"Generated {generated_count} design-point folders under {output_dir}")
 
 
 if __name__ == "__main__":

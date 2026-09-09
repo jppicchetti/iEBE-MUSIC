@@ -31,7 +31,7 @@ def find_design_points(root: Path) -> list[tuple[int, Path]]:
             matches.append((int(m.group(1)), path))
     if not matches:
         raise FileNotFoundError(f"No DesignPoint directories found in {root}")
-    return matches
+    return sorted(matches, key=lambda item: item[0])
 
 
 def run_command(command: list[str], cwd: Path, dry_run: bool) -> None:
@@ -41,8 +41,15 @@ def run_command(command: list[str], cwd: Path, dry_run: bool) -> None:
     subprocess.run(command, cwd=str(cwd), check=True)
 
 
-def submit_all(root: Path, dry_run: bool) -> None:
+def submit_all(
+    root: Path,
+    start_design_point: int,
+    end_design_point: int,
+    dry_run: bool,
+) -> None:
     for index, point_dir in find_design_points(root):
+        if index < start_design_point or index > end_design_point:
+            continue
         param_file = point_dir / f"parameter_dictionary_design_point_{index}.py"
         if not param_file.exists():
             raise FileNotFoundError(f"Missing parameter file for DesignPoint{index}: {param_file}")
@@ -52,15 +59,15 @@ def submit_all(root: Path, dry_run: bool) -> None:
             "python3",
             str(DEFAULT_OSG_SCRIPT),
             "-n",
-            "2000",
+            "40",
             "-nev",
-            "1",
+            "50",
             "-nth",
-            "8",
+            "3",
             "-nurqmd",
-            "20",
+            "3",
             "-singularity",
-            "$DATA/singularity_repos/iebe-music-joao-aug26v4.sif",
+            "$DATA/singularity_repos/iebe-music-joao-sep09v3.sif",
             "-param",
             param_file.name,
             "-jobid",
@@ -77,6 +84,18 @@ def submit_all(root: Path, dry_run: bool) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--start-design-point",
+        type=int,
+        default=1,
+        help="First design-point number to submit, inclusive.",
+    )
+    parser.add_argument(
+        "--end-design-point",
+        type=int,
+        default=None,
+        help="Last design-point number to submit, inclusive. Defaults to the final folder.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the commands without executing them.",
@@ -84,7 +103,15 @@ def main() -> None:
     args = parser.parse_args()
 
     root = Path.cwd()
-    submit_all(root, args.dry_run)
+    design_points = find_design_points(root)
+    end_design_point = args.end_design_point or design_points[-1][0]
+    if args.start_design_point < 1 or end_design_point < args.start_design_point:
+        parser.error("design-point range must satisfy 1 <= start <= end")
+    if end_design_point > design_points[-1][0]:
+        parser.error(
+            f"end design point {end_design_point} exceeds available design point {design_points[-1][0]}"
+        )
+    submit_all(root, args.start_design_point, end_design_point, args.dry_run)
 
 
 if __name__ == "__main__":
