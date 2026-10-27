@@ -698,6 +698,19 @@ def run_spvn_analysis(urqmd_file_path, n_threads, final_results_folder,
 
 def check_an_event_is_good(event_folder):
     """This function checks the given event contains all required files"""
+    compact_files = [
+        path.join(event_folder, "particle_9999_vndata_eta_-0.5_0.5.dat"),
+    ]
+    compact_flow_patterns = (
+        "particle_9999_vndata_eta_*.dat",
+        "particle_9999_vn2_eta_*.dat",
+        "particle_9999_Cn4_eta_*.dat",
+    )
+    if path.isfile(compact_files[0]) and all(
+            glob(path.join(event_folder, pattern))
+            for pattern in compact_flow_patterns):
+        return True
+
     required_files_list = [
         'particle_9999_vndata_eta_-0.5_0.5.dat',
         'particle_211_vndata_diff_y_-0.5_0.5.dat',

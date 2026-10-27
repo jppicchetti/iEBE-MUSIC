@@ -173,7 +173,7 @@ iss_dict = {
 
 hadronic_afterburner_toolkit_dict = {
     'event_buffer_size': 100000,
-    'compute_correlation': 0,
+    'compute_correlation': 1,
     'flag_charge_dependence': 0,
     'compute_corr_rap_dep': 0,
     'resonance_weak_feed_down_flag': 1,

@@ -767,6 +767,7 @@ hadronic_afterburner_toolkit_dict = {
         10,  # the maximum harmonic order (= order_max - 1 ) of anisotropic flow
     # for charged hadron; order_max = 6 for identified particles
     'compute_correlation': 0,  # flag to compute correlation function
+    'compact_spvn': 1,  # save only charged-hadron integrated SPVN observables
     'flag_charge_dependence':
         0,  # flag to compute charge dependence correlation
     'compute_corr_rap_dep':

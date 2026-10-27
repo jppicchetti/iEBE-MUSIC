@@ -123,6 +123,45 @@ void Analysis::FlowAnalysis() {
     std::vector<singleParticleSpectra *> spvn;
 
     // all hadrons (99999) first (collect E_T)
+    if (paraRdr.getVal("compact_spvn", 0) == 1) {
+        // Keep only the observables needed for event-by-event SPVN studies.
+        // The configured eta and pT cuts are used for flow and mean pT.
+        paraRdr.setVal("particle_monval", 9999);
+        paraRdr.setVal("rap_type", 0);
+        paraRdr.setVal("rapidity_distribution", 0);
+        paraRdr.setVal("rapidityPTDistributionFlag", 0);
+        paraRdr.setVal("compute_correlation", 1);
+        paraRdr.setVal("flag_charge_dependence", 0);
+        spvn.push_back(new singleParticleSpectra(paraRdr, path_, ran_gen_ptr_));
+
+        // Multiplicity is always recorded in the fixed |eta| < 0.5 window.
+        paraRdr.setVal("rap_min", -0.5);
+        paraRdr.setVal("rap_max", 0.5);
+        paraRdr.setVal("pT_min", 0.0);
+        paraRdr.setVal("pT_max", 1.0e6);
+        paraRdr.setVal("compute_correlation", 0);
+        spvn.push_back(new singleParticleSpectra(paraRdr, path_, ran_gen_ptr_));
+
+        int event_id = 0;
+        while (!particle_list_->end_of_file()) {
+            messager << "Reading event: " << event_id + 1 << " ... ";
+            messager.flush("info");
+            int nev = particle_list_->read_in_particle_samples();
+            messager << "nev = " << nev;
+            messager.flush("info");
+            messager.info(" processing ...");
+            for (auto &ipart : spvn) {
+                particle_list_->filter_particles_from_events(ipart->get_monval());
+                ipart->calculate_Qn_vector_shell(particle_list_);
+            }
+            messager.info("done!");
+            event_id += nev;
+        }
+        for (auto &ipart : spvn) ipart->output_spectra_and_Qn_results();
+        for (auto *ipart : spvn) delete ipart;
+        return;
+    }
+
     paraRdr.setVal("particle_monval", 99999);
     paraRdr.setVal("rap_type", 0);
     paraRdr.setVal("rapidity_distribution", 1);
