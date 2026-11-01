@@ -119,7 +119,7 @@ free_streaming_dict = {
 
 music_dict = {
     'beastMode': 2,
-    'Initial_profile': 92,   # type of initial condition 
+    'Initial_profile': 93,   # e, u^\mu, and pi^\munu from free streaming
                             # 9: IPGlasma (full Tmunu),
                             #   -- 91: e and u^\mu,
                             #   -- 92: e only,
@@ -174,6 +174,7 @@ iss_dict = {
 hadronic_afterburner_toolkit_dict = {
     'event_buffer_size': 100000,
     'compute_correlation': 1,
+    'compact_spvn': 1,
     'flag_charge_dependence': 0,
     'compute_corr_rap_dep': 0,
     'resonance_weak_feed_down_flag': 1,

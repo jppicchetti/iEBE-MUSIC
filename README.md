@@ -85,6 +85,13 @@ The `music_dict` has all the parameters to run MUSIC for (3+1)D hydrodynamic sim
         - 91: e and u^\mu,
         - 92: e only,
         - 93: e, u^\mu, and pi^\munu
+
+For the TRENTo plus free-streaming interface, profile 93 transfers the
+Landau-matched energy density, transverse flow, and shear tensor supplied by
+the `freestream` package. The interface assumes boost invariance, so
+longitudinal-flow and mixed longitudinal components are initialized to zero;
+MUSIC reconstructs the longitudinal shear component from its tracelessness
+condition.
     'Initial_profile': 13,  for 3D MCGlauber initial condition
         - 13: 3D MCGlauber initial condition with dynamical initialization,
         - 131: 3D MCGlauber initial condition with instantaneous initialization

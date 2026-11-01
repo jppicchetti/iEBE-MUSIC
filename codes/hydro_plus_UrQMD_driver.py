@@ -95,6 +95,55 @@ def convert_matrix_to_table(infile, outfile, n_grid=None, lower=-10.0, upper=10.
     np.savetxt(outfile, table, fmt="%.6e", header=header, comments='')
 ############################################################################################
 
+
+def write_freestream_profile_93(outfile, fs, grid_max, grid_step):
+    """Write free-streaming e, u^mu, and pi^mu nu for MUSIC profile 93."""
+    energy_density = fs.energy_density()
+    flow_velocity = fs.flow_velocity()
+    shear_tensor = fs.shear_tensor()
+    n_grid = energy_density.shape[0]
+    if energy_density.shape != (n_grid, n_grid):
+        raise ValueError(
+            "Free-streaming energy density must be a square transverse grid")
+    if flow_velocity.shape[:2] != energy_density.shape:
+        raise ValueError("Free-streaming flow grid does not match energy density")
+    if shear_tensor.shape[:2] != energy_density.shape:
+        raise ValueError("Free-streaming shear grid does not match energy density")
+
+    coordinates = np.linspace(
+        -grid_max + grid_step / 2.0,
+        grid_max - grid_step / 2.0,
+        n_grid)
+    X, Y = np.meshgrid(coordinates, coordinates, indexing="xy")
+    zeros = np.zeros_like(energy_density)
+    # FreeStreamer is boost invariant and returns a (tau, x, y) tensor.
+    # MUSIC derives the longitudinal shear component from tracelessness.
+    table = np.column_stack([
+        zeros.ravel(),
+        X.ravel(),
+        Y.ravel(),
+        energy_density.ravel(),
+        flow_velocity[..., 0].ravel(),
+        flow_velocity[..., 1].ravel(),
+        flow_velocity[..., 2].ravel(),
+        zeros.ravel(),
+        zeros.ravel(),
+        zeros.ravel(),
+        zeros.ravel(),
+        zeros.ravel(),
+        shear_tensor[..., 1, 1].ravel(),
+        shear_tensor[..., 1, 2].ravel(),
+        zeros.ravel(),
+        shear_tensor[..., 2, 2].ravel(),
+        zeros.ravel(),
+        zeros.ravel(),
+    ])
+    header = (
+        "# dummy 1 etamax= 0 xmax= {0} ymax= {0} deta= 0 "
+        "dx= {1:.12g} dy= {1:.12g}").format(n_grid, grid_step)
+    np.savetxt(outfile, table, fmt="%.8e", header=header, comments="")
+
+
 def get_initial_condition(database, initial_type, iev, event_id, seed_add,
                           final_results_folder, para_dict):
     """This funciton get initial conditions"""
@@ -357,11 +406,6 @@ def connect_trento_event(res_path, initial_type, filename,
         file_path = path.join(res_path, filename)
         initial = np.loadtxt(file_path)
         fs = freestream.FreeStreamer(initial, grid_max, free_stream_tau)
-        e = fs.energy_density()
-        e_path = path.join(res_path, "e.dat")
-        np.savetxt(e_path, e)
-        hydro_file = "hydro.dat"
-        hydro_out = path.join(res_path, hydro_file)
 
         n_grid_float = (2.0*grid_max)/grid_step
         n_grid = int(round(n_grid_float))
@@ -370,8 +414,8 @@ def connect_trento_event(res_path, initial_type, filename,
                 "Inconsistent free-streaming grid: "
                 f"2*grid_max/grid_step = {n_grid_float} is not an integer")
 
-        convert_matrix_to_table(e_path, hydro_out, n_grid=n_grid,
-                                lower=-grid_max, upper=grid_max)
+        hydro_out = path.join(res_path, "hydro.dat")
+        write_freestream_profile_93(hydro_out, fs, grid_max, grid_step)
         hydro_initial_file = "MUSIC/initial/e.dat"
         if path.exists(hydro_initial_file) or path.islink(hydro_initial_file):
             remove(hydro_initial_file)
@@ -705,6 +749,7 @@ def check_an_event_is_good(event_folder):
         "particle_9999_vndata_eta_*.dat",
         "particle_9999_vn2_eta_*.dat",
         "particle_9999_Cn4_eta_*.dat",
+        "particle_9999_cumulants_eta_*.dat",
     )
     if path.isfile(compact_files[0]) and all(
             glob(path.join(event_folder, pattern))
