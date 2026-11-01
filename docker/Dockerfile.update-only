@@ -1,0 +1,35 @@
+ARG BASE_IMAGE=iebe-music-joao-sep06v1:latest
+FROM ${BASE_IMAGE}
+
+ARG GIT_REF=origin/joao/clean-final
+ARG SOURCE_REV=unknown
+
+RUN set -euxo pipefail; \
+    cd /opt/iEBE-MUSIC; \
+    git config --global --add safe.directory /opt/iEBE-MUSIC; \
+    git fetch --prune origin "${GIT_REF#origin/}"; \
+    git reset --hard "${GIT_REF}"; \
+    test "${SOURCE_REV}" = "unknown" || test "$(git rev-parse HEAD)" = "${SOURCE_REV}"
+
+# Rebuild the native package whose sources are changed by the compact SPVN
+# analysis. The rest of the base image remains cached and is reused.
+RUN set -euxo pipefail; \
+    cd /opt/iEBE-MUSIC/codes/hadronic_afterburner_toolkit_code; \
+    rm -rf build; \
+    mkdir build; \
+    cd build; \
+    cmake .. -Dlink_with_lib=OFF; \
+    cmake --build . --parallel 2; \
+    cmake --install .; \
+    cd ../ebe_scripts; \
+    g++ convert_to_binary.cpp -lz -o ../convert_to_binary.e; \
+    g++ concatenate_binary_files.cpp -lz -o ../concatenate_binary_files.e; \
+    cd ..; \
+    mkdir -p ../hadronic_afterburner_toolkit; \
+    cp convert_to_binary.e concatenate_binary_files.e parameters.dat \
+       ebe_scripts/average_event_HBT_correlation_function.py \
+       ../hadronic_afterburner_toolkit/; \
+    test -x hadronic_afterburner_tools.e; \
+    strings hadronic_afterburner_tools.e | grep -Fx compact_spvn
+
+WORKDIR /opt
